@@ -11,7 +11,6 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
   import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-
   const firebaseConfig = {
     apiKey: "AIzaSyBy7k2Qfb0c4ddRUePiwDX0r8FmineLfao",
     authDomain: "holiday-planner-2026.firebaseapp.com",
@@ -21,134 +20,69 @@
     messagingSenderId: "623493853821",
     appId: "1:623493853821:web:c54ac5c49199613bff3714"
   };
-
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
   const auth = getAuth(app);
-
-  window._fbDb = db;
-  window._fbAuth = auth;
-  window._fbRef = ref;
-  window._fbSet = set;
-  window._fbOnValue = onValue;
-  window._fbSignInAnonymously = signInAnonymously;
-  window._fbReady = true;
-  window.dispatchEvent(new Event("firebase-ready"));
+  window._fbDb=db; window._fbAuth=auth; window._fbRef=ref; window._fbSet=set;
+  window._fbOnValue=onValue; window._fbSignInAnonymously=signInAnonymously;
+  window._fbReady=true; window.dispatchEvent(new Event("firebase-ready"));
 </script>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0f0f0f; color: #f0f0f0; min-height: 100vh; }
-  :root {
-    --bg: #0f0f0f; --bg2: #1a1a1a; --bg3: #242424;
-    --border: #2e2e2e; --border2: #3a3a3a;
-    --text: #f0f0f0; --text2: #a0a0a0; --text3: #606060;
-  }
-  input, select, button { font-family: inherit; }
-  input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); }
-  .sheet-overlay { position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;display:flex;flex-direction:column;justify-content:flex-end; }
-  .sheet { background:var(--bg2);border-radius:16px 16px 0 0;max-height:90vh;overflow-y:auto;box-shadow:0 -4px 32px rgba(0,0,0,0.4); }
-  .sheet-header { display:flex;justify-content:space-between;align-items:center;padding:16px 18px 12px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg2);z-index:1; }
-  .sheet-body { padding:16px 18px 32px; }
-  .fab-wrap { position:fixed;bottom:20px;right:16px;display:flex;flex-direction:column;gap:10px;z-index:100; }
-  .fab { border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 12px rgba(0,0,0,0.4); }
-  .toggle-group { display:flex;gap:6px; }
-  .toggle-btn { flex:1;padding:9px 4px;border-radius:8px;cursor:pointer;font-size:13px;transition:all 0.15s; }
-  .field { margin-bottom:14px; }
-  .field label { font-size:12px;color:var(--text2);display:block;margin-bottom:4px; }
-  .text-input { width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--bg3);color:var(--text);font-size:14px; }
-  .date-input { width:100%;padding:9px 8px;border-radius:8px;border:1px solid var(--border2);background:var(--bg3);color:var(--text);font-size:13px; }
-  .select-input { width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--bg3);color:var(--text);font-size:14px; }
-  .btn-primary { width:100%;padding:12px;border-radius:10px;border:none;color:#fff;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:10px; }
-  .btn-danger { width:100%;padding:12px;border-radius:10px;border:1px solid #7f1d1d;background:transparent;color:#f87171;font-size:14px;cursor:pointer; }
-  .cal-grid { display:grid;grid-template-columns:repeat(2,1fr);gap:8px; }
-  @media(max-width:400px){ .cal-grid { grid-template-columns:1fr; } }
-  .month-card { background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:8px; }
-  .day-grid { display:grid;grid-template-columns:repeat(7,1fr);gap:1px;text-align:center; }
-  .day-cell { aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:3px;font-size:9px;cursor:default; }
-  .balance-grid { display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px; }
-  .balance-card { background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px; }
-  .sync-badge { display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:2px 8px;border-radius:20px; }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f5f5f5;color:#1a1a1a;min-height:100vh;}
+  input,select,button{font-family:inherit;}
+  .sheet-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:200;display:flex;flex-direction:column;justify-content:flex-end;}
+  .sheet{background:#fff;border-radius:16px 16px 0 0;max-height:92vh;overflow-y:auto;box-shadow:0 -4px 32px rgba(0,0,0,0.12);}
+  .sheet-header{display:flex;justify-content:space-between;align-items:center;padding:16px 18px 12px;border-bottom:1px solid #e5e5e5;position:sticky;top:0;background:#fff;z-index:1;}
+  .sheet-body{padding:16px 18px 32px;}
+  .fab-wrap{position:fixed;bottom:20px;right:16px;display:flex;flex-direction:column;gap:10px;z-index:100;}
+  .fab{border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 12px rgba(0,0,0,0.15);}
+  .toggle-group{display:flex;gap:6px;}
+  .toggle-btn{flex:1;padding:9px 4px;border-radius:8px;cursor:pointer;font-size:13px;transition:all 0.15s;}
+  .field{margin-bottom:14px;}
+  .field label{font-size:12px;color:#666;display:block;margin-bottom:4px;}
+  .text-input{width:100%;padding:10px 12px;border-radius:8px;border:1px solid #ddd;background:#fafafa;color:#1a1a1a;font-size:14px;}
+  .text-input:focus{outline:none;border-color:#ec4899;}
+  .date-input{width:100%;padding:9px 8px;border-radius:8px;border:1px solid #ddd;background:#fafafa;color:#1a1a1a;font-size:13px;}
+  .select-input{width:100%;padding:10px 12px;border-radius:8px;border:1px solid #ddd;background:#fafafa;color:#1a1a1a;font-size:14px;}
+  .btn-primary{width:100%;padding:12px;border-radius:10px;border:none;color:#fff;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:10px;}
+  .btn-danger{width:100%;padding:12px;border-radius:10px;border:1px solid #fca5a5;background:transparent;color:#ef4444;font-size:14px;cursor:pointer;}
+  .btn-secondary{padding:7px 14px;border-radius:8px;border:1px solid #ddd;background:#fff;color:#666;font-size:12px;cursor:pointer;}
+  .cal-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+  @media(max-width:400px){.cal-grid{grid-template-columns:1fr;}}
+  .month-card{background:#fff;border:1px solid #e5e5e5;border-radius:10px;padding:8px;}
+  .day-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;text-align:center;}
+  .day-cell{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:3px;font-size:9px;cursor:default;}
+  .balance-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;}
+  .balance-card{background:#fff;border:1px solid #e5e5e5;border-radius:12px;padding:12px;}
+  .sync-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:2px 8px;border-radius:20px;}
+  .flight-card{background:#f9fafb;border:1px solid #e5e5e5;border-radius:8px;padding:10px;margin-bottom:8px;}
+  .flight-card:last-child{margin-bottom:0;}
+  .tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;}
+  .divider{height:1px;background:#e5e5e5;margin:16px 0;}
 </style>
 </head>
 <body>
-<div id="root"><div style="padding:32px;text-align:center;color:#a0a0a0">Connecting to Firebase…</div></div>
-
+<div id="root"><div style="padding:32px;text-align:center;color:#888">Connecting…</div></div>
 <script type="text/babel">
-const { useState, useEffect, useRef, useCallback } = React;
+const {useState,useEffect,useRef} = React;
 
-const HESSEN_PH = new Set([
-  "2026-01-01","2026-04-03","2026-04-06","2026-05-01","2026-05-14","2026-05-25","2026-06-04","2026-10-03","2026-10-31","2026-12-25","2026-12-26",
-  "2027-01-01","2027-03-26","2027-03-29","2027-05-01","2027-05-06","2027-05-17","2027-05-27","2027-10-03","2027-10-31","2027-12-25","2027-12-26"
-]);
-const AD_PH = new Set([
-  "2026-01-01","2026-03-20","2026-05-27","2026-05-28","2026-05-29","2026-06-16","2026-09-25","2026-12-02","2026-12-03",
-  "2027-01-01","2027-03-09","2027-03-10","2027-03-11","2027-05-16","2027-05-17","2027-05-18","2027-06-06","2027-09-14","2027-12-02","2027-12-03"
-]);
-const PH_NAMES = {
-  "2026-01-01":"New Year's Day","2026-04-03":"Good Friday","2026-04-06":"Easter Monday","2026-05-01":"Labour Day",
-  "2026-05-14":"Ascension Day","2026-05-25":"Whit Monday","2026-06-04":"Corpus Christi","2026-10-03":"German Unity Day",
-  "2026-10-31":"Reformation Day","2026-12-25":"Christmas Day","2026-12-26":"Boxing Day",
-  "2027-01-01":"New Year's Day","2027-03-26":"Good Friday","2027-03-29":"Easter Monday","2027-05-01":"Labour Day",
-  "2027-05-06":"Ascension Day","2027-05-17":"Whit Monday","2027-05-27":"Corpus Christi","2027-10-03":"German Unity Day",
-  "2027-10-31":"Reformation Day","2027-12-25":"Christmas Day","2027-12-26":"Boxing Day",
-  "2026-03-20":"Eid Al Fitr (est.)","2026-05-27":"Eid Al Adha (est.)","2026-05-28":"Eid Al Adha (est.)",
-  "2026-05-29":"Eid Al Adha (est.)","2026-06-16":"Islamic New Year (est.)","2026-09-25":"Prophet's Birthday (est.)",
-  "2026-12-02":"UAE National Day","2026-12-03":"UAE National Day",
-  "2027-03-09":"Eid Al Fitr (est.)","2027-03-10":"Eid Al Fitr (est.)","2027-03-11":"Eid Al Fitr (est.)",
-  "2027-05-16":"Eid Al Adha (est.)","2027-05-17":"Eid Al Adha (est.)","2027-05-18":"Eid Al Adha (est.)",
-  "2027-06-06":"Islamic New Year (est.)","2027-09-14":"Prophet's Birthday (est.)",
-  "2027-12-02":"UAE National Day","2027-12-03":"UAE National Day"
-};
-const CORRECT_PIN = "050393";
-const PIN_KEY = "hp_auth";
+const HESSEN_PH=new Set(["2026-01-01","2026-04-03","2026-04-06","2026-05-01","2026-05-14","2026-05-25","2026-06-04","2026-10-03","2026-10-31","2026-12-25","2026-12-26","2027-01-01","2027-03-26","2027-03-29","2027-05-01","2027-05-06","2027-05-17","2027-05-27","2027-10-03","2027-10-31","2027-12-25","2027-12-26"]);
+const AD_PH=new Set(["2026-01-01","2026-03-20","2026-05-27","2026-05-28","2026-05-29","2026-06-16","2026-09-25","2026-12-02","2026-12-03","2027-01-01","2027-03-09","2027-03-10","2027-03-11","2027-05-16","2027-05-17","2027-05-18","2027-06-06","2027-09-14","2027-12-02","2027-12-03"]);
+const PH_NAMES={"2026-01-01":"New Year's Day","2026-04-03":"Good Friday","2026-04-06":"Easter Monday","2026-05-01":"Labour Day","2026-05-14":"Ascension Day","2026-05-25":"Whit Monday","2026-06-04":"Corpus Christi","2026-10-03":"German Unity Day","2026-10-31":"Reformation Day","2026-12-25":"Christmas Day","2026-12-26":"Boxing Day","2027-01-01":"New Year's Day","2027-03-26":"Good Friday","2027-03-29":"Easter Monday","2027-05-01":"Labour Day","2027-05-06":"Ascension Day","2027-05-17":"Whit Monday","2027-05-27":"Corpus Christi","2027-10-03":"German Unity Day","2027-10-31":"Reformation Day","2027-12-25":"Christmas Day","2027-12-26":"Boxing Day","2026-03-20":"Eid Al Fitr (est.)","2026-05-27":"Eid Al Adha (est.)","2026-05-28":"Eid Al Adha (est.)","2026-05-29":"Eid Al Adha (est.)","2026-06-16":"Islamic New Year (est.)","2026-09-25":"Prophet's Birthday (est.)","2026-12-02":"UAE National Day","2026-12-03":"UAE National Day","2027-03-09":"Eid Al Fitr (est.)","2027-03-10":"Eid Al Fitr (est.)","2027-03-11":"Eid Al Fitr (est.)","2027-05-16":"Eid Al Adha (est.)","2027-05-17":"Eid Al Adha (est.)","2027-05-18":"Eid Al Adha (est.)","2027-06-06":"Islamic New Year (est.)","2027-09-14":"Prophet's Birthday (est.)","2027-12-02":"UAE National Day","2027-12-03":"UAE National Day"};
+const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
+const COLORS=["#ec4899","#f59e0b","#10b981","#ef4444","#8b5cf6","#14b8a6","#6366f1","#f97316"];
+const CABINS=["Economy","Premium Economy","Business","First"];
+const CURRENCIES=["EUR","USD","AED","GBP","CHF"];
+const MILES_PROGRAMS=["Etihad Guest","Miles & More","Flying Blue","Avios","United MileagePlus","Emirates Skywards","Other"];
+const CORRECT_PIN="050393";
+const PIN_KEY="hp_auth_v2";
 
-function PinScreen({ onUnlock }) {
-  const [pin, setPin] = useState("");
-  const [error, setError] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  async function handleSubmit() {
-    if (pin !== CORRECT_PIN) { setError(true); setPin(""); return; }
-    setLoading(true);
-    try {
-      await window._fbSignInAnonymously(window._fbAuth);
-      sessionStorage.setItem(PIN_KEY, "1");
-      onUnlock();
-    } catch(e) { setError(true); }
-    setLoading(false);
-  }
-
-  return (
-    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#0f0f0f"}}>
-      <div style={{background:"#1a1a1a",border:"1px solid #2e2e2e",borderRadius:16,padding:"32px 28px",width:300,textAlign:"center"}}>
-        <div style={{fontSize:32,marginBottom:12}}>🗓</div>
-        <h2 style={{fontSize:18,fontWeight:700,marginBottom:4,color:"#f0f0f0"}}>Holiday Planner</h2>
-        <p style={{fontSize:13,color:"#a0a0a0",marginBottom:24}}>Salma & Adis · Enter PIN to continue</p>
-        <input
-          type="password" inputMode="numeric" maxLength={6}
-          value={pin} onChange={e=>{setPin(e.target.value);setError(false);}}
-          onKeyDown={e=>e.key==="Enter"&&handleSubmit()}
-          placeholder="······"
-          style={{width:"100%",padding:"12px",borderRadius:8,border:`1.5px solid ${error?"#ef4444":"#3a3a3a"}`,background:"#242424",color:"#f0f0f0",fontSize:22,textAlign:"center",letterSpacing:6,marginBottom:8,boxSizing:"border-box"}}
-        />
-        {error && <div style={{color:"#f87171",fontSize:12,marginBottom:8}}>Incorrect PIN — try again</div>}
-        <button onClick={handleSubmit} disabled={loading||pin.length<4}
-          style={{width:"100%",padding:"11px",borderRadius:8,border:"none",background:pin.length>=4?"#ec4899":"#2e2e2e",color:"#fff",fontSize:14,fontWeight:700,cursor:pin.length>=4?"pointer":"default",marginTop:4}}>
-          {loading ? "Connecting…" : "Unlock"}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-
-const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-const COLORS = ["#ec4899","#f59e0b","#10b981","#ef4444","#8b5cf6","#14b8a6","#6366f1","#f97316"];
-const DEFAULT_STATE = {
-  salma:{total:40}, adis:{total:35},
+const DEFAULT={
+  salma:{total:40},adis:{total:35},
   trips:[
-    {id:1,name:"Mexico",who:"both",start:"2026-03-16",end:"2026-03-31",status:"committed",color:"#ec4899",ptoDays:null},
-    {id:2,name:"London (work)",who:"adis",start:"2026-04-28",end:"2026-05-03",status:"committed",color:"#14b8a6",ptoDays:{adis:["2026-05-01"]}},
+    {id:1,name:"Mexico",who:"both",start:"2026-03-16",end:"2026-03-31",status:"committed",color:"#ec4899",ptoDays:null,flights:[]},
+    {id:2,name:"London (work)",who:"adis",start:"2026-04-28",end:"2026-05-03",status:"committed",color:"#14b8a6",ptoDays:{adis:["2026-05-01"]},flights:[]},
   ],
   scenarios:[]
 };
@@ -171,7 +105,43 @@ function ptoForPerson(trip,person){
 function getDaysUsed(trips,who,sf){
   return trips.filter(t=>(t.who==="both"||t.who===who)&&(!sf||sf.includes(t.status))).reduce((a,t)=>a+ptoForPerson(t,who),0);
 }
+function nowTs(){return new Date().toISOString();}
+function fmtTs(ts){const d=new Date(ts);return `${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)} ${d.getFullYear()}, ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;}
 
+// ── PIN Screen ──────────────────────────────────────────────
+function PinScreen({onUnlock}){
+  const [pin,setPin]=useState("");
+  const [error,setError]=useState(false);
+  const [loading,setLoading]=useState(false);
+  async function submit(){
+    if(pin!==CORRECT_PIN){setError(true);setPin("");return;}
+    setLoading(true);
+    try{await window._fbSignInAnonymously(window._fbAuth);sessionStorage.setItem(PIN_KEY,"1");onUnlock();}
+    catch(e){setError(true);}
+    setLoading(false);
+  }
+  return(
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f5f5f5"}}>
+      <div style={{background:"#fff",border:"1px solid #e5e5e5",borderRadius:16,padding:"32px 28px",width:300,textAlign:"center",boxShadow:"0 4px 24px rgba(0,0,0,0.08)"}}>
+        <div style={{fontSize:32,marginBottom:12}}>🗓</div>
+        <h2 style={{fontSize:18,fontWeight:700,marginBottom:4,color:"#1a1a1a"}}>Holiday Planner</h2>
+        <p style={{fontSize:13,color:"#888",marginBottom:24}}>Salma & Adis · Enter PIN to continue</p>
+        <input type="password" inputMode="numeric" maxLength={6} value={pin}
+          onChange={e=>{setPin(e.target.value);setError(false);}}
+          onKeyDown={e=>e.key==="Enter"&&submit()}
+          placeholder="······"
+          style={{width:"100%",padding:"12px",borderRadius:8,border:`1.5px solid ${error?"#ef4444":"#ddd"}`,background:"#fafafa",color:"#1a1a1a",fontSize:22,textAlign:"center",letterSpacing:6,marginBottom:8,boxSizing:"border-box"}}/>
+        {error&&<div style={{color:"#ef4444",fontSize:12,marginBottom:8}}>Incorrect PIN — try again</div>}
+        <button onClick={submit} disabled={loading||pin.length<4}
+          style={{width:"100%",padding:"11px",borderRadius:8,border:"none",background:pin.length>=4?"#ec4899":"#e5e5e5",color:"#fff",fontSize:14,fontWeight:700,cursor:pin.length>=4?"pointer":"default",marginTop:4}}>
+          {loading?"Connecting…":"Unlock"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Bottom Sheet ─────────────────────────────────────────────
 function BottomSheet({open,onClose,title,children}){
   useEffect(()=>{document.body.style.overflow=open?"hidden":"";return()=>{document.body.style.overflow="";};},[open]);
   if(!open)return null;
@@ -179,8 +149,8 @@ function BottomSheet({open,onClose,title,children}){
     <div className="sheet-overlay" onClick={onClose}>
       <div className="sheet" onClick={e=>e.stopPropagation()}>
         <div className="sheet-header">
-          <span style={{fontWeight:700,fontSize:15}}>{title}</span>
-          <button onClick={onClose} style={{background:"none",border:"none",fontSize:22,cursor:"pointer",color:"#606060",lineHeight:1}}>×</button>
+          <span style={{fontWeight:700,fontSize:15,color:"#1a1a1a"}}>{title}</span>
+          <button onClick={onClose} style={{background:"none",border:"none",fontSize:22,cursor:"pointer",color:"#aaa",lineHeight:1}}>×</button>
         </div>
         <div className="sheet-body">{children}</div>
       </div>
@@ -193,7 +163,7 @@ function ToggleGroup({options,value,onChange,accent="#ec4899"}){
     <div className="toggle-group">
       {options.map(([v,l])=>(
         <button key={v} className="toggle-btn" onClick={()=>onChange(v)}
-          style={{border:`1.5px solid ${value===v?accent:"#3a3a3a"}`,background:value===v?accent+"25":"transparent",color:value===v?accent:"#a0a0a0",fontWeight:value===v?700:400}}>
+          style={{border:`1.5px solid ${value===v?accent:"#ddd"}`,background:value===v?accent+"18":"#fafafa",color:value===v?accent:"#888",fontWeight:value===v?700:400}}>
           {l}
         </button>
       ))}
@@ -204,7 +174,7 @@ function ToggleGroup({options,value,onChange,accent="#ec4899"}){
 function DayPicker({trip,person,onChange}){
   if(!trip.start||!trip.end||trip.start>trip.end)return null;
   const w=workDays(trip.start,trip.end,person);
-  if(!w.length)return<div style={{fontSize:12,color:"#606060"}}>No working days in range</div>;
+  if(!w.length)return<div style={{fontSize:12,color:"#aaa"}}>No working days in range</div>;
   const pto=trip.ptoDays?.[person]??w;
   const toggle=d=>{const cur=trip.ptoDays?.[person]??w;const next=cur.includes(d)?cur.filter(x=>x!==d):[...cur,d].sort();onChange({...trip,ptoDays:{...(trip.ptoDays||{}),[person]:next}});};
   const allPTO=w.every(d=>pto.includes(d));
@@ -214,7 +184,7 @@ function DayPicker({trip,person,onChange}){
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
         <span style={{fontSize:12}}><b style={{color:"#ec4899"}}>{ptoCount} PTO</b>{w.length-ptoCount>0&&<> · <b style={{color:"#3b82f6"}}>{w.length-ptoCount} remote</b></>}</span>
         <button onClick={()=>onChange({...trip,ptoDays:{...(trip.ptoDays||{}),[person]:allPTO?[]:[...w]}})}
-          style={{fontSize:11,padding:"3px 10px",borderRadius:20,border:"1px solid #3a3a3a",background:"transparent",color:"#a0a0a0",cursor:"pointer"}}>
+          style={{fontSize:11,padding:"3px 10px",borderRadius:20,border:"1px solid #ddd",background:"#fff",color:"#888",cursor:"pointer"}}>
           {allPTO?"All remote":"All PTO"}
         </button>
       </div>
@@ -223,7 +193,7 @@ function DayPicker({trip,person,onChange}){
           const isPTO=pto.includes(d);const dt=pDate(d);
           const dow=["Su","Mo","Tu","We","Th","Fr","Sa"][dt.getDay()];
           return(
-            <div key={d} onClick={()=>toggle(d)} style={{display:"flex",flexDirection:"column",alignItems:"center",padding:"4px 5px",borderRadius:6,cursor:"pointer",minWidth:34,background:isPTO?"#4a1020":"#0c1a3a",border:`1px solid ${isPTO?"#ec4899":"#3b82f6"}`,color:isPTO?"#f9a8d4":"#93c5fd"}}>
+            <div key={d} onClick={()=>toggle(d)} style={{display:"flex",flexDirection:"column",alignItems:"center",padding:"4px 5px",borderRadius:6,cursor:"pointer",minWidth:34,background:isPTO?"#fce7f3":"#eff6ff",border:`1px solid ${isPTO?"#ec4899":"#93c5fd"}`,color:isPTO?"#be185d":"#1d4ed8"}}>
               <span style={{fontSize:9,fontWeight:500}}>{dow}</span>
               <span style={{fontSize:12,fontWeight:700,lineHeight:1.3}}>{dt.getDate()}</span>
               <span style={{fontSize:8}}>{MONTHS[dt.getMonth()].slice(0,3)}</span>
@@ -231,42 +201,162 @@ function DayPicker({trip,person,onChange}){
           );
         })}
       </div>
-      <div style={{fontSize:10,color:"#606060",marginTop:6}}>Pink = PTO · Blue = Remote · Tap to toggle</div>
+      <div style={{fontSize:10,color:"#aaa",marginTop:6}}>Pink = PTO · Blue = Remote · Tap to toggle</div>
     </div>
   );
 }
 
+// ── Flight Tracker ───────────────────────────────────────────
+const emptyFlight=()=>({id:Date.now(),route:"",airline:"",flightDate:"",cabin:"Business",cashPrice:"",cashCurrency:"EUR",milesPrice:"",milesProgram:"Etihad Guest",notes:"",recordedAt:nowTs()});
+
+function FlightTracker({flights=[],onChange}){
+  const [adding,setAdding]=useState(false);
+  const [form,setForm]=useState(emptyFlight());
+  const [expandedId,setExpandedId]=useState(null);
+
+  function saveEntry(){
+    if(!form.route)return;
+    onChange([...flights,{...form,id:Date.now(),recordedAt:nowTs()}]);
+    setForm(emptyFlight());
+    setAdding(false);
+  }
+  function deleteEntry(id){onChange(flights.filter(f=>f.id!==id));}
+
+  const bestCash=flights.filter(f=>f.cashPrice).sort((a,b)=>+a.cashPrice-+b.cashPrice)[0];
+  const bestMiles=flights.filter(f=>f.milesPrice).sort((a,b)=>+a.milesPrice-+b.milesPrice)[0];
+
+  return(
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+        <span style={{fontSize:13,fontWeight:700,color:"#1a1a1a"}}>✈️ Flight options</span>
+        <button onClick={()=>{setAdding(!adding);setForm(emptyFlight());}} className="btn-secondary">
+          {adding?"Cancel":"+ Add option"}
+        </button>
+      </div>
+
+      {/* Best price summary */}
+      {flights.length>1&&(
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
+          {bestCash&&<div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,padding:"8px 10px"}}>
+            <div style={{fontSize:10,color:"#16a34a",fontWeight:600,marginBottom:2}}>BEST CASH</div>
+            <div style={{fontSize:15,fontWeight:700,color:"#15803d"}}>{Number(bestCash.cashPrice).toLocaleString()} {bestCash.cashCurrency}</div>
+            <div style={{fontSize:10,color:"#666"}}>{bestCash.airline} · {bestCash.cabin}</div>
+          </div>}
+          {bestMiles&&<div style={{background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:8,padding:"8px 10px"}}>
+            <div style={{fontSize:10,color:"#2563eb",fontWeight:600,marginBottom:2}}>BEST MILES</div>
+            <div style={{fontSize:15,fontWeight:700,color:"#1d4ed8"}}>{Number(bestMiles.milesPrice).toLocaleString()} mi</div>
+            <div style={{fontSize:10,color:"#666"}}>{bestMiles.milesProgram} · {bestMiles.cabin}</div>
+          </div>}
+        </div>
+      )}
+
+      {/* Add form */}
+      {adding&&(
+        <div style={{background:"#fafafa",border:"1px solid #e5e5e5",borderRadius:10,padding:12,marginBottom:12}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+            <div><label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>Route</label>
+              <input className="text-input" value={form.route} onChange={e=>setForm(f=>({...f,route:e.target.value}))} placeholder="AUH → TYO" style={{fontSize:13,padding:"7px 9px"}}/></div>
+            <div><label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>Airline</label>
+              <input className="text-input" value={form.airline} onChange={e=>setForm(f=>({...f,airline:e.target.value}))} placeholder="Etihad EY301" style={{fontSize:13,padding:"7px 9px"}}/></div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+            <div><label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>Flight date</label>
+              <input type="date" className="date-input" value={form.flightDate} onChange={e=>setForm(f=>({...f,flightDate:e.target.value}))} style={{fontSize:13,padding:"7px 9px"}}/></div>
+            <div><label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>Cabin</label>
+              <select className="select-input" value={form.cabin} onChange={e=>setForm(f=>({...f,cabin:e.target.value}))} style={{fontSize:13,padding:"7px 9px"}}>
+                {CABINS.map(c=><option key={c}>{c}</option>)}
+              </select></div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:8,marginBottom:8}}>
+            <div><label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>Cash price</label>
+              <input type="number" className="text-input" value={form.cashPrice} onChange={e=>setForm(f=>({...f,cashPrice:e.target.value}))} placeholder="1200" style={{fontSize:13,padding:"7px 9px"}}/></div>
+            <div><label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>Currency</label>
+              <select className="select-input" value={form.cashCurrency} onChange={e=>setForm(f=>({...f,cashCurrency:e.target.value}))} style={{fontSize:13,padding:"7px 9px"}}>
+                {CURRENCIES.map(c=><option key={c}>{c}</option>)}
+              </select></div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:8,marginBottom:8}}>
+            <div><label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>Miles price</label>
+              <input type="number" className="text-input" value={form.milesPrice} onChange={e=>setForm(f=>({...f,milesPrice:e.target.value}))} placeholder="40000" style={{fontSize:13,padding:"7px 9px"}}/></div>
+            <div><label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>Program</label>
+              <select className="select-input" value={form.milesProgram} onChange={e=>setForm(f=>({...f,milesProgram:e.target.value}))} style={{fontSize:13,padding:"7px 9px"}}>
+                {MILES_PROGRAMS.map(p=><option key={p}>{p}</option>)}
+              </select></div>
+          </div>
+          <div style={{marginBottom:10}}>
+            <label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>Notes</label>
+            <input className="text-input" value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} placeholder="e.g. includes taxes, direct flight" style={{fontSize:13,padding:"7px 9px"}}/>
+          </div>
+          <button onClick={saveEntry} disabled={!form.route}
+            style={{width:"100%",padding:"9px",borderRadius:8,border:"none",background:form.route?"#ec4899":"#e5e5e5",color:"#fff",fontWeight:700,fontSize:13,cursor:form.route?"pointer":"default"}}>
+            Save flight option
+          </button>
+        </div>
+      )}
+
+      {/* Flight entries */}
+      {flights.length===0&&!adding&&<div style={{fontSize:12,color:"#aaa",textAlign:"center",padding:"12px 0"}}>No flight options yet — tap "+ Add option" to start tracking</div>}
+      {[...flights].reverse().map(f=>(
+        <div key={f.id} className="flight-card">
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
+            <div>
+              <span style={{fontWeight:700,fontSize:14,color:"#1a1a1a"}}>{f.route}</span>
+              <span style={{fontSize:12,color:"#666",marginLeft:8}}>{f.airline}</span>
+            </div>
+            <div style={{display:"flex",gap:6,alignItems:"center"}}>
+              <span className="tag" style={{background:"#f0f0f0",color:"#666"}}>{f.cabin}</span>
+              <button onClick={()=>deleteEntry(f.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#ccc",fontSize:16,lineHeight:1}}>×</button>
+            </div>
+          </div>
+          <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:6}}>
+            {f.cashPrice&&<div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:6,padding:"4px 10px"}}>
+              <span style={{fontSize:11,color:"#16a34a",fontWeight:700}}>{Number(f.cashPrice).toLocaleString()} {f.cashCurrency}</span>
+              <span style={{fontSize:10,color:"#888",marginLeft:4}}>cash</span>
+            </div>}
+            {f.milesPrice&&<div style={{background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:6,padding:"4px 10px"}}>
+              <span style={{fontSize:11,color:"#2563eb",fontWeight:700}}>{Number(f.milesPrice).toLocaleString()} mi</span>
+              <span style={{fontSize:10,color:"#888",marginLeft:4}}>{f.milesProgram}</span>
+            </div>}
+          </div>
+          {f.flightDate&&<div style={{fontSize:11,color:"#888",marginBottom:3}}>✈ {f.flightDate}</div>}
+          {f.notes&&<div style={{fontSize:11,color:"#666",fontStyle:"italic",marginBottom:3}}>"{f.notes}"</div>}
+          <div style={{fontSize:10,color:"#bbb"}}>Recorded {fmtTs(f.recordedAt)}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Main App ─────────────────────────────────────────────────
 function App(){
-  const [unlocked, setUnlocked] = useState(!!sessionStorage.getItem(PIN_KEY));
-
-  useEffect(()=>{
-    if(unlocked && window._fbAuth && !window._fbAuth.currentUser){
-      window._fbSignInAnonymously(window._fbAuth).catch(console.error);
-    }
-  },[unlocked]);
-
-  if(!unlocked) return <PinScreen onUnlock={()=>setUnlocked(true)}/>;
-  return <Planner/>;
+  const [unlocked,setUnlocked]=useState(!!sessionStorage.getItem(PIN_KEY));
+  useEffect(()=>{if(unlocked&&window._fbAuth&&!window._fbAuth.currentUser)window._fbSignInAnonymously(window._fbAuth).catch(console.error);},[unlocked]);
+  if(!unlocked)return<PinScreen onUnlock={()=>setUnlocked(true)}/>;
+  return<Planner/>;
 }
 
 function Planner(){
   const [state,setState]=useState(null);
-  const [synced,setSynced]=useState(false);  const [year,setYear]=useState(2026);
+  const [synced,setSynced]=useState(false);
+  const [year,setYear]=useState(2026);
   const [sheet,setSheet]=useState(null);
   const [editTrip,setEditTrip]=useState(null);
   const [pickerPerson,setPickerPerson]=useState("salma");
   const [whatIf,setWhatIf]=useState({month:"2026-07",days:5,who:"both"});
-  const [tooltip,setTooltip]=useState(null);
+  const [activeTab,setActiveTab]=useState("details"); // "details" | "flights"
   const skipSave=useRef(false);
 
   useEffect(()=>{
     function init(){
-      const db=window._fbDb,fbRef=window._fbRef,onValue=window._fbOnValue;
-      const r=fbRef(db,"planner");
-      onValue(r,snap=>{
+      const r=window._fbRef(window._fbDb,"planner");
+      window._fbOnValue(r,snap=>{
         const val=snap.val();
         skipSave.current=true;
-        setState(val||DEFAULT_STATE);
+        // ensure flights array exists
+        const s=val||DEFAULT;
+        s.trips=s.trips.map(t=>({flights:[],...t}));
+        s.scenarios=(s.scenarios||[]).map(t=>({flights:[],...t}));
+        setState(s);
         setSynced(true);
         setTimeout(()=>{skipSave.current=false;},100);
       });
@@ -277,14 +367,11 @@ function Planner(){
 
   useEffect(()=>{
     if(!state||skipSave.current)return;
-    const db=window._fbDb,fbRef=window._fbRef,fbSet=window._fbSet;
-    if(!db)return;
-    fbSet(fbRef(db,"planner"),state).catch(console.error);
+    window._fbSet(window._fbRef(window._fbDb,"planner"),state).catch(console.error);
   },[state]);
 
   function save(s){setState(s);}
-
-  if(!state)return<div style={{padding:32,textAlign:"center",color:"#a0a0a0",fontSize:14}}>Connecting…</div>;
+  if(!state)return<div style={{padding:32,textAlign:"center",color:"#888",fontSize:14}}>Loading…</div>;
 
   const all=[...state.trips,...state.scenarios];
   const sUsed=getDaysUsed(all,"salma",["committed"]),sPlanned=getDaysUsed(all,"salma",["planned"]);
@@ -293,8 +380,8 @@ function Planner(){
   const balCol=n=>n<=5?"#ef4444":n<=10?"#f59e0b":"#10b981";
   const pct=(u,t)=>Math.min(100,Math.round((u/t)*100));
 
-  function openNew(){setEditTrip({id:Date.now(),name:"",who:"both",start:"",end:"",status:"planned",color:"#ec4899",ptoDays:null,isNew:true});setPickerPerson("salma");setSheet("trip");}
-  function openEdit(t){setEditTrip({...t});setPickerPerson(t.who==="adis"?"adis":"salma");setSheet("trip");}
+  function openNew(){setEditTrip({id:Date.now(),name:"",who:"both",start:"",end:"",status:"planned",color:"#ec4899",ptoDays:null,flights:[],isNew:true});setPickerPerson("salma");setActiveTab("details");setSheet("trip");}
+  function openEdit(t){setEditTrip({flights:[],...t});setPickerPerson(t.who==="adis"?"adis":"salma");setActiveTab("details");setSheet("trip");}
 
   function saveTrip(trip){
     const{isNew,...t}=trip;const isScen=t.status==="planned";
@@ -303,9 +390,13 @@ function Planner(){
     setSheet(null);
   }
   function deleteTrip(id){save({...state,trips:state.trips.filter(x=>x.id!==id),scenarios:state.scenarios.filter(x=>x.id!==id)});setSheet(null);}
+  function updateFlights(tripId,flights){
+    const updateList=list=>list.map(t=>t.id===tripId?{...t,flights}:t);
+    save({...state,trips:updateList(state.trips),scenarios:updateList(state.scenarios)});
+    setEditTrip(t=>({...t,flights}));
+  }
 
   function tripsForMonth(y,m){const s=new Date(y,m,1),e=new Date(y,m+1,0);return all.filter(t=>pDate(t.start)<=e&&pDate(t.end)>=s);}
-
   const pickerPeople=editTrip?.who==="both"?["salma","adis"]:editTrip?.who==="salma"?["salma"]:["adis"];
   const sWI=sLeft-(whatIf.who!=="adis"?whatIf.days:0),aWI=aLeft-(whatIf.who!=="salma"?whatIf.days:0);
 
@@ -314,17 +405,17 @@ function Planner(){
       {/* Header */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
         <div>
-          <h2 style={{fontSize:17,fontWeight:700,marginBottom:2}}>🗓 Holiday Planner</h2>
+          <h2 style={{fontSize:17,fontWeight:700,marginBottom:2,color:"#1a1a1a"}}>🗓 Holiday Planner</h2>
           <div style={{display:"flex",alignItems:"center",gap:6}}>
-            <span style={{fontSize:11,color:"#a0a0a0"}}>Salma & Adis · 2026–2027</span>
-            <span className="sync-badge" style={{background:synced?"#052e16":"#1c1917",color:synced?"#4ade80":"#a0a0a0"}}>
+            <span style={{fontSize:11,color:"#888"}}>Salma & Adis · 2026–2027</span>
+            <span className="sync-badge" style={{background:synced?"#f0fdf4":"#f5f5f5",color:synced?"#16a34a":"#888"}}>
               {synced?"● live":"○ connecting"}
             </span>
           </div>
         </div>
         <div style={{display:"flex",gap:5}}>
           {[2026,2027].map(y=>(
-            <button key={y} onClick={()=>setYear(y)} style={{padding:"4px 10px",borderRadius:20,border:"1px solid #3a3a3a",background:year===y?"#f0f0f0":"transparent",color:year===y?"#0f0f0f":"#f0f0f0",cursor:"pointer",fontSize:12,fontWeight:700}}>{y}</button>
+            <button key={y} onClick={()=>setYear(y)} style={{padding:"4px 10px",borderRadius:20,border:"1px solid #ddd",background:year===y?"#1a1a1a":"#fff",color:year===y?"#fff":"#1a1a1a",cursor:"pointer",fontSize:12,fontWeight:700}}>{y}</button>
           ))}
         </div>
       </div>
@@ -333,13 +424,13 @@ function Planner(){
       <div className="balance-grid">
         {[{name:"Salma",left:sLeft,used:sUsed,planned:sPlanned,total:state.salma.total,key:"salma"},{name:"Adis",left:aLeft,used:aUsed,planned:aPlanned,total:state.adis.total,key:"adis"}].map(p=>(
           <div key={p.key} className="balance-card">
-            <div style={{fontSize:12,color:"#a0a0a0",marginBottom:2}}>{p.name}</div>
+            <div style={{fontSize:12,color:"#888",marginBottom:2}}>{p.name}</div>
             <div style={{fontSize:26,fontWeight:700,color:balCol(p.left),lineHeight:1.1}}>{p.left}</div>
-            <div style={{fontSize:11,color:"#606060",marginBottom:7}}>days left</div>
-            <div style={{height:5,borderRadius:3,background:"#2e2e2e",overflow:"hidden",marginBottom:5}}>
+            <div style={{fontSize:11,color:"#aaa",marginBottom:7}}>days left</div>
+            <div style={{height:5,borderRadius:3,background:"#f0f0f0",overflow:"hidden",marginBottom:5}}>
               <div style={{height:"100%",borderRadius:3,background:"#ec4899",width:`${pct(p.used,p.total)}%`}}/>
             </div>
-            <div style={{fontSize:10,color:"#a0a0a0",display:"flex",justifyContent:"space-between"}}>
+            <div style={{fontSize:10,color:"#888",display:"flex",justifyContent:"space-between"}}>
               <span><b style={{color:"#ec4899"}}>{p.used}</b> used</span>
               {p.planned>0&&<span><b style={{color:"#f59e0b"}}>{p.planned}</b> plan</span>}
               <span>{p.total} tot</span>
@@ -349,7 +440,7 @@ function Planner(){
       </div>
 
       {/* Legend */}
-      <div style={{display:"flex",gap:10,marginBottom:10,flexWrap:"wrap",fontSize:10,color:"#a0a0a0"}}>
+      <div style={{display:"flex",gap:10,marginBottom:10,flexWrap:"wrap",fontSize:10,color:"#888"}}>
         {[["#ec4899",2,"Committed"],["#f59e0b",2,"Planned"],["#10b981",8,"Hessen PH"],["#3b82f6",8,"Abu Dhabi PH"]].map(([c,r,l])=>(
           <span key={l} style={{display:"flex",alignItems:"center",gap:3}}>
             <span style={{width:9,height:9,borderRadius:r,background:c,display:"inline-block",flexShrink:0}}/>{l}
@@ -367,9 +458,9 @@ function Planner(){
           const today=new Date();
           return(
             <div key={`${y}-${m}`} className="month-card">
-              <div style={{fontWeight:700,fontSize:11,marginBottom:5,color:"#f0f0f0"}}>{MONTHS[m]}</div>
+              <div style={{fontWeight:700,fontSize:11,marginBottom:5,color:"#1a1a1a"}}>{MONTHS[m]}</div>
               <div className="day-grid">
-                {["M","T","W","T","F","S","S"].map((d,i)=><div key={i} style={{fontSize:7,color:"#606060",paddingBottom:1}}>{d}</div>)}
+                {["M","T","W","T","F","S","S"].map((d,i)=><div key={i} style={{fontSize:7,color:"#bbb",paddingBottom:1}}>{d}</div>)}
                 {cells.map((day,i)=>{
                   if(!day)return<div key={i}/>;
                   const ds=`${y}-${String(m+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
@@ -377,15 +468,14 @@ function Planner(){
                   const ton=trips.filter(t=>ds>=t.start&&ds<=t.end);
                   const isToday=today.getFullYear()===y&&today.getMonth()===m&&today.getDate()===day;
                   const col=i%7;const isWE=col===5||col===6;
-                  let bg="transparent",fg=isWE?"#444":"#c0c0c0",brd="none";
+                  let bg="transparent",fg=isWE?"#ccc":"#555",brd="none";
                   if(isH){bg="#10b981";fg="#fff";}
                   if(isA){bg="#3b82f6";fg="#fff";}
                   if(ton.length){bg=ton[0].status==="committed"?ton[0].color:"#f59e0b";fg="#fff";}
-                  if(isToday)brd="1.5px solid #f0f0f0";
+                  if(isToday)brd="1.5px solid #1a1a1a";
                   const tip=[...ton.map(t=>t.name),...(PH_NAMES[ds]?[PH_NAMES[ds]]:[])];
                   return(
-                    <div key={i} className="day-cell"
-                      title={tip.join(" · ")}
+                    <div key={i} className="day-cell" title={tip.join(" · ")}
                       onClick={ton.length?()=>openEdit(ton[0]):null}
                       style={{background:bg,color:fg,border:brd,cursor:ton.length?"pointer":"default",fontWeight:isToday?700:400}}>
                       {day}
@@ -396,8 +486,9 @@ function Planner(){
               {trips.length>0&&(
                 <div style={{marginTop:4,display:"flex",flexDirection:"column",gap:2}}>
                   {trips.map(t=>(
-                    <div key={t.id} onClick={()=>openEdit(t)} style={{fontSize:8,padding:"2px 4px",borderRadius:3,background:t.color+"22",color:t.color,cursor:"pointer",border:`1px solid ${t.color}44`,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                    <div key={t.id} onClick={()=>openEdit(t)} style={{fontSize:8,padding:"2px 4px",borderRadius:3,background:t.color+"18",color:t.color,cursor:"pointer",border:`1px solid ${t.color}33`,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                       {t.who==="both"?"👫":t.who==="salma"?"S":"A"} {t.name}
+                      {t.flights?.length>0&&<span style={{marginLeft:4}}>✈{t.flights.length}</span>}
                     </div>
                   ))}
                 </div>
@@ -414,54 +505,73 @@ function Planner(){
       </div>
 
       {/* Trip sheet */}
-      <BottomSheet open={sheet==="trip"} onClose={()=>setSheet(null)} title={editTrip?.isNew?"New trip":"Edit trip"}>
+      <BottomSheet open={sheet==="trip"} onClose={()=>setSheet(null)} title={editTrip?.isNew?"New trip":editTrip?.name||"Edit trip"}>
         {editTrip&&(
           <>
-            <div className="field"><label>Trip name</label>
-              <input className="text-input" value={editTrip.name} onChange={e=>setEditTrip(t=>({...t,name:e.target.value}))} placeholder="e.g. Japan, Euro Summer…"/>
+            {/* Tabs */}
+            <div style={{display:"flex",gap:0,marginBottom:16,borderBottom:"1px solid #e5e5e5"}}>
+              {[["details","Details"],["flights",`Flights${editTrip.flights?.length>0?` (${editTrip.flights.length})`:""}` ]].map(([t,l])=>(
+                <button key={t} onClick={()=>setActiveTab(t)}
+                  style={{flex:1,padding:"8px 4px",border:"none",background:"transparent",color:activeTab===t?"#ec4899":"#aaa",fontWeight:activeTab===t?700:400,fontSize:13,cursor:"pointer",borderBottom:activeTab===t?"2px solid #ec4899":"2px solid transparent",marginBottom:-1}}>
+                  {l}
+                </button>
+              ))}
             </div>
-            <div className="field"><label>Who's going?</label>
-              <ToggleGroup options={[["both","👫 Both"],["salma","Salma"],["adis","Adis"]]} value={editTrip.who}
-                onChange={v=>{setEditTrip(t=>({...t,who:v,ptoDays:null}));setPickerPerson(v==="adis"?"adis":"salma");}}/>
-            </div>
-            <div className="field"><label>Status</label>
-              <ToggleGroup options={[["committed","✓ Committed"],["planned","~ Planned"]]} value={editTrip.status}
-                onChange={v=>setEditTrip(t=>({...t,status:v}))} accent={editTrip.status==="committed"?"#ec4899":"#f59e0b"}/>
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
-              <div className="field" style={{marginBottom:0}}><label>Start</label>
-                <input type="date" className="date-input" value={editTrip.start} onChange={e=>setEditTrip(t=>({...t,start:e.target.value,ptoDays:null}))}/>
-              </div>
-              <div className="field" style={{marginBottom:0}}><label>End</label>
-                <input type="date" className="date-input" value={editTrip.end} onChange={e=>setEditTrip(t=>({...t,end:e.target.value,ptoDays:null}))}/>
-              </div>
-            </div>
-            {editTrip.start&&editTrip.end&&editTrip.start<=editTrip.end&&(
-              <div className="field"><label>PTO vs Remote days</label>
-                <div style={{background:"#242424",borderRadius:8,padding:10,border:"1px solid #2e2e2e"}}>
-                  {pickerPeople.length>1&&(
-                    <div style={{display:"flex",gap:6,marginBottom:10}}>
-                      {pickerPeople.map(p=>(
-                        <button key={p} onClick={()=>setPickerPerson(p)} style={{padding:"4px 14px",borderRadius:20,border:`1px solid ${pickerPerson===p?"#ec4899":"#3a3a3a"}`,background:pickerPerson===p?"#4a1020":"transparent",color:pickerPerson===p?"#f9a8d4":"#a0a0a0",cursor:"pointer",fontSize:12,fontWeight:pickerPerson===p?700:400,textTransform:"capitalize"}}>
-                          {p}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  <DayPicker trip={editTrip} person={pickerPerson} onChange={setEditTrip}/>
+
+            {activeTab==="details"&&(
+              <>
+                <div className="field"><label>Trip name</label>
+                  <input className="text-input" value={editTrip.name} onChange={e=>setEditTrip(t=>({...t,name:e.target.value}))} placeholder="e.g. Japan, Euro Summer…"/></div>
+                <div className="field"><label>Who's going?</label>
+                  <ToggleGroup options={[["both","👫 Both"],["salma","Salma"],["adis","Adis"]]} value={editTrip.who}
+                    onChange={v=>{setEditTrip(t=>({...t,who:v,ptoDays:null}));setPickerPerson(v==="adis"?"adis":"salma");}}/></div>
+                <div className="field"><label>Status</label>
+                  <ToggleGroup options={[["committed","✓ Committed"],["planned","~ Planned"]]} value={editTrip.status}
+                    onChange={v=>setEditTrip(t=>({...t,status:v}))} accent={editTrip.status==="committed"?"#ec4899":"#f59e0b"}/></div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+                  <div className="field" style={{marginBottom:0}}><label>Start</label>
+                    <input type="date" className="date-input" value={editTrip.start} onChange={e=>setEditTrip(t=>({...t,start:e.target.value,ptoDays:null}))}/></div>
+                  <div className="field" style={{marginBottom:0}}><label>End</label>
+                    <input type="date" className="date-input" value={editTrip.end} onChange={e=>setEditTrip(t=>({...t,end:e.target.value,ptoDays:null}))}/></div>
                 </div>
-              </div>
+                {editTrip.start&&editTrip.end&&editTrip.start<=editTrip.end&&(
+                  <div className="field"><label>PTO vs Remote days</label>
+                    <div style={{background:"#fafafa",borderRadius:8,padding:10,border:"1px solid #e5e5e5"}}>
+                      {pickerPeople.length>1&&(
+                        <div style={{display:"flex",gap:6,marginBottom:10}}>
+                          {pickerPeople.map(p=>(
+                            <button key={p} onClick={()=>setPickerPerson(p)} style={{padding:"4px 14px",borderRadius:20,border:`1px solid ${pickerPerson===p?"#ec4899":"#ddd"}`,background:pickerPerson===p?"#fce7f3":"#fff",color:pickerPerson===p?"#be185d":"#888",cursor:"pointer",fontSize:12,fontWeight:pickerPerson===p?700:400,textTransform:"capitalize"}}>
+                              {p}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      <DayPicker trip={editTrip} person={pickerPerson} onChange={setEditTrip}/>
+                    </div>
+                  </div>
+                )}
+                <div className="field"><label>Color</label>
+                  <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                    {COLORS.map(c=><div key={c} onClick={()=>setEditTrip(t=>({...t,color:c}))} style={{width:28,height:28,borderRadius:14,background:c,cursor:"pointer",border:editTrip.color===c?"3px solid #1a1a1a":"3px solid transparent"}}/>)}
+                  </div>
+                </div>
+                <button className="btn-primary" onClick={()=>saveTrip(editTrip)} disabled={!editTrip.name||!editTrip.start||!editTrip.end||editTrip.start>editTrip.end}
+                  style={{background:(editTrip.name&&editTrip.start&&editTrip.end&&editTrip.start<=editTrip.end)?"#ec4899":"#e5e5e5"}}>
+                  {editTrip.isNew?"Add trip":"Save changes"}
+                </button>
+                {!editTrip.isNew&&<button className="btn-danger" onClick={()=>deleteTrip(editTrip.id)}>Delete trip</button>}
+              </>
             )}
-            <div className="field"><label>Color</label>
-              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                {COLORS.map(c=><div key={c} onClick={()=>setEditTrip(t=>({...t,color:c}))} style={{width:28,height:28,borderRadius:14,background:c,cursor:"pointer",border:editTrip.color===c?"3px solid #f0f0f0":"3px solid transparent"}}/>)}
-              </div>
-            </div>
-            <button className="btn-primary" onClick={()=>saveTrip(editTrip)} disabled={!editTrip.name||!editTrip.start||!editTrip.end||editTrip.start>editTrip.end}
-              style={{background:(editTrip.name&&editTrip.start&&editTrip.end&&editTrip.start<=editTrip.end)?"#ec4899":"#2e2e2e"}}>
-              {editTrip.isNew?"Add trip":"Save changes"}
-            </button>
-            {!editTrip.isNew&&<button className="btn-danger" onClick={()=>deleteTrip(editTrip.id)}>Delete trip</button>}
+
+            {activeTab==="flights"&&(
+              <FlightTracker
+                flights={editTrip.flights||[]}
+                onChange={flights=>{
+                  setEditTrip(t=>({...t,flights}));
+                  if(!editTrip.isNew)updateFlights(editTrip.id,flights);
+                }}
+              />
+            )}
           </>
         )}
       </BottomSheet>
@@ -471,22 +581,19 @@ function Planner(){
         <div className="field"><label>Month</label>
           <select className="select-input" value={whatIf.month} onChange={e=>setWhatIf(w=>({...w,month:e.target.value}))}>
             {[2026,2027].flatMap(y=>Array.from({length:12},(_,i)=>{const v=`${y}-${String(i+1).padStart(2,"0")}`;return<option key={v} value={v}>{MONTHS[i]} {y}</option>;}))}
-          </select>
-        </div>
+          </select></div>
         <div className="field"><label>Who</label>
-          <ToggleGroup options={[["both","👫 Both"],["salma","Salma"],["adis","Adis"]]} value={whatIf.who} onChange={v=>setWhatIf(w=>({...w,who:v}))} accent="#f59e0b"/>
-        </div>
-        <div className="field"><label>PTO days: <b style={{color:"#f0f0f0",fontSize:15}}>{whatIf.days}</b></label>
-          <input type="range" min={1} max={30} value={whatIf.days} onChange={e=>setWhatIf(w=>({...w,days:+e.target.value}))} style={{width:"100%",accentColor:"#f59e0b",height:24}}/>
-        </div>
-        <div style={{background:"#242424",borderRadius:10,padding:14,border:"1px solid #2e2e2e",marginBottom:16}}>
-          {whatIf.who!=="adis"&&<div style={{display:"flex",justifyContent:"space-between",marginBottom:6,fontSize:13}}><span style={{color:"#a0a0a0"}}>Salma</span><span><b>{sLeft}</b> → <b style={{color:sWI<0?"#ef4444":"#10b981",fontSize:15}}>{sWI}</b> days left</span></div>}
-          {whatIf.who!=="salma"&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13}}><span style={{color:"#a0a0a0"}}>Adis</span><span><b>{aLeft}</b> → <b style={{color:aWI<0?"#ef4444":"#10b981",fontSize:15}}>{aWI}</b> days left</span></div>}
+          <ToggleGroup options={[["both","👫 Both"],["salma","Salma"],["adis","Adis"]]} value={whatIf.who} onChange={v=>setWhatIf(w=>({...w,who:v}))} accent="#f59e0b"/></div>
+        <div className="field"><label>PTO days: <b style={{color:"#1a1a1a",fontSize:15}}>{whatIf.days}</b></label>
+          <input type="range" min={1} max={30} value={whatIf.days} onChange={e=>setWhatIf(w=>({...w,days:+e.target.value}))} style={{width:"100%",accentColor:"#f59e0b",height:24}}/></div>
+        <div style={{background:"#fafafa",borderRadius:10,padding:14,border:"1px solid #e5e5e5",marginBottom:16}}>
+          {whatIf.who!=="adis"&&<div style={{display:"flex",justifyContent:"space-between",marginBottom:6,fontSize:13}}><span style={{color:"#888"}}>Salma</span><span><b>{sLeft}</b> → <b style={{color:sWI<0?"#ef4444":"#10b981",fontSize:15}}>{sWI}</b> days left</span></div>}
+          {whatIf.who!=="salma"&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13}}><span style={{color:"#888"}}>Adis</span><span><b>{aLeft}</b> → <b style={{color:aWI<0?"#ef4444":"#10b981",fontSize:15}}>{aWI}</b> days left</span></div>}
         </div>
         <button className="btn-primary" onClick={()=>{
           const[y,m]=whatIf.month.split("-").map(Number);
           const s=fmtD(new Date(y,m-1,1)),e=fmtD(new Date(y,m-1,whatIf.days));
-          saveTrip({id:Date.now(),name:`Scenario ${MONTHS[m-1]}`,who:whatIf.who,start:s,end:e,status:"planned",color:"#f59e0b",ptoDays:null,isNew:true});
+          saveTrip({id:Date.now(),name:`Scenario ${MONTHS[m-1]}`,who:whatIf.who,start:s,end:e,status:"planned",color:"#f59e0b",ptoDays:null,flights:[],isNew:true});
           setSheet(null);
         }} style={{background:"#f59e0b"}}>Add to calendar as planned</button>
       </BottomSheet>
