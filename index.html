@@ -21,7 +21,7 @@
     messagingSenderId: "623493853821",
     appId: "1:623493853821:web:c54ac5c49199613bff3714"
   };
-  
+
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
   const auth = getAuth(app);
@@ -142,8 +142,8 @@ function PinScreen({ onUnlock }) {
 }
 
 
+const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const COLORS = ["#ec4899","#f59e0b","#10b981","#ef4444","#8b5cf6","#14b8a6","#6366f1","#f97316"];
-  const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const DEFAULT_STATE = {
   salma:{total:40}, adis:{total:35},
   trips:[
@@ -341,7 +341,7 @@ function Planner(){
             </div>
             <div style={{fontSize:10,color:"#a0a0a0",display:"flex",justifyContent:"space-between"}}>
               <span><b style={{color:"#ec4899"}}>{p.used}</b> used</span>
-              {p.planned>0&&<span><b style={{color:"#f59e0b"}}>{p.planned}</b> plan</b></span>}
+              {p.planned>0&&<span><b style={{color:"#f59e0b"}}>{p.planned}</b> plan</span>}
               <span>{p.total} tot</span>
             </div>
           </div>
@@ -413,7 +413,7 @@ function Planner(){
         <button className="fab" onClick={openNew} style={{width:56,height:56,borderRadius:28,background:"#ec4899",color:"#fff",fontSize:26}}>+</button>
       </div>
 
-      {/* Trip sheet */} 
+      {/* Trip sheet */}
       <BottomSheet open={sheet==="trip"} onClose={()=>setSheet(null)} title={editTrip?.isNew?"New trip":"Edit trip"}>
         {editTrip&&(
           <>
