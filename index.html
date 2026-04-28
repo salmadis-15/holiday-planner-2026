@@ -413,7 +413,7 @@ function Planner(){
         <button className="fab" onClick={openNew} style={{width:56,height:56,borderRadius:28,background:"#ec4899",color:"#fff",fontSize:26}}>+</button>
       </div>
 
-      {/* Trip sheet */}
+      {/* Trip sheet */} 
       <BottomSheet open={sheet==="trip"} onClose={()=>setSheet(null)} title={editTrip?.isNew?"New trip":"Edit trip"}>
         {editTrip&&(
           <>
