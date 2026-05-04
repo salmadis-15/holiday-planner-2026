@@ -12,37 +12,35 @@ exports.handler = async function(event) {
   try { body = JSON.parse(event.body); }
   catch { return { statusCode: 400, body: JSON.stringify({ error: "Invalid request body" }) }; }
 
-  const { images } = body; // array of { base64Image, mediaType }
+  const { images } = body;
   if (!images || !images.length) {
     return { statusCode: 400, body: JSON.stringify({ error: "Missing images array" }) };
   }
 
-  const prompt = `You are analyzing one or more flight search screenshots. They may show:
-- A single one-way flight
-- Outbound + return legs of a round trip (shown on separate screens)
-- Multiple different flight options
+  const prompt = `You are analyzing one or more flight search screenshots. Extract ALL flight options visible across ALL screenshots.
 
-Analyze ALL screenshots together and return ONLY a JSON array where each element is one logical flight booking. If screenshots show outbound + return of the same trip, merge them into ONE entry with a round-trip route. If they show different/independent flights, return multiple entries.
+For each unique combination of route + cabin class + price, create a separate entry. For example if you see Economy and Business prices for the same route, return TWO entries.
 
-Each entry must have these fields (use null for anything not visible):
+If screenshots show outbound + return legs of the same trip, treat them as a round trip and merge into one entry per cabin class.
+
+Return ONLY a JSON array. Each element:
 {
-  "route": "full route e.g. AUH → DPS → AUH for round trip, or AUH → DPS for one-way",
-  "airline": "airline name(s) and flight number(s), e.g. Etihad EY476 / EY477",
-  "outboundDate": "YYYY-MM-DD of outbound/first flight",
-  "returnDate": "YYYY-MM-DD of return flight if round trip, else null",
+  "route": "full route e.g. AUH → DPS → AUH for round trip",
+  "airline": "airline name(s) and flight number(s)",
+  "outboundDate": "YYYY-MM-DD or null",
+  "returnDate": "YYYY-MM-DD or null",
   "cabin": "Economy|Premium Economy|Business|First",
-  "cashPriceTotal": "total numeric price for all pax combined, no currency symbol",
-  "cashCurrency": "3-letter currency code e.g. AED, EUR, USD",
-  "pax": "number of passengers as integer",
-  "milesPrice": "total miles if shown, numeric only, else null",
-  "milesProgram": "miles program name if shown, else null",
+  "cashPriceTotal": "total numeric price for all pax, no currency symbol, or null",
+  "cashCurrency": "3-letter code e.g. AED",
+  "pax": integer number of passengers,
+  "milesPrice": "total miles numeric or null",
+  "milesProgram": "program name or null",
   "isRoundTrip": true or false,
-  "notes": "other useful info: duration, stops, taxes, fare class, etc."
+  "notes": "duration, stops, taxes, fare class, any extra info"
 }
 
 Return ONLY the JSON array, no explanation, no markdown.`;
 
-  // Build content array with all images + prompt
   const content = [
     ...images.map(img => ({
       type: "image",
@@ -61,7 +59,7 @@ Return ONLY the JSON array, no explanation, no markdown.`;
       },
       body: JSON.stringify({
         model: "claude-opus-4-6",
-        max_tokens: 1000,
+        max_tokens: 2000,
         messages: [{ role: "user", content }]
       })
     });
