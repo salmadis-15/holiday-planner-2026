@@ -432,9 +432,27 @@ function FlightTracker({flights=[],onChange}){
                         {r.isRoundTrip&&<span style={{fontSize:10,padding:"1px 7px",borderRadius:20,background:"#eff6ff",color:"#2563eb"}}>round trip</span>}
                       </div>
                       <div style={{fontSize:11,color:"#666",marginBottom:4}}>{r.airline}</div>
-                      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:4}}>
-                        {r.cashPriceTotal&&<span style={{fontSize:12,fontWeight:700,color:"#16a34a"}}>{Number(r.cashPriceTotal).toLocaleString()} {r.cashCurrency} total{r.cashPricePP?` · ${Number(r.cashPricePP).toLocaleString()}/pp`:""}</span>}
-                        {r.milesPrice&&<span style={{fontSize:12,fontWeight:700,color:"#2563eb"}}>{Number(r.milesPrice).toLocaleString()} mi{r.milesTaxTotal?` + ${Number(r.milesTaxTotal).toLocaleString()} ${r.milesTaxCurrency||"AED"} taxes`:""}{r.milesProgram?` (${r.milesProgram})`:""}</span>}
+                      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:4}}>
+                        {r.cashPriceTotal&&(
+                          <div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:6,padding:"4px 10px"}}>
+                            <span style={{fontSize:12,fontWeight:700,color:"#16a34a"}}>{Number(r.cashPriceTotal).toLocaleString()} {r.cashCurrency}</span>
+                            {r.cashPricePP&&<span style={{fontSize:11,color:"#16a34a"}}> · {Number(r.cashPricePP).toLocaleString()}/pp</span>}
+                            <span style={{fontSize:10,color:"#888",marginLeft:4}}>cash</span>
+                          </div>
+                        )}
+                        {r.milesPrice&&(
+                          <div style={{background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:6,padding:"4px 10px",display:"flex",alignItems:"center",gap:6}}>
+                            <span style={{fontSize:12,fontWeight:700,color:"#2563eb"}}>{Number(r.milesPrice).toLocaleString()} mi</span>
+                            {r.milesTaxTotal&&(
+                              <>
+                                <span style={{color:"#93c5fd",fontSize:12}}>+</span>
+                                <span style={{fontSize:12,fontWeight:700,color:"#0369a1"}}>{Number(r.milesTaxTotal).toLocaleString()} {r.milesTaxCurrency||"AED"}</span>
+                                <span style={{fontSize:10,color:"#888"}}>taxes</span>
+                              </>
+                            )}
+                            {r.milesProgram&&<span style={{fontSize:10,color:"#888"}}>· {r.milesProgram}</span>}
+                          </div>
+                        )}
                       </div>
                       {(r.outboundDate||r.returnDate)&&<div style={{fontSize:10,color:"#888",marginBottom:4}}>✈ {r.outboundDate||""}{r.returnDate?` → ${r.returnDate}`:""} · {r.pax} pax</div>}
                     </div>
@@ -551,16 +569,27 @@ function FlightTracker({flights=[],onChange}){
             </div>
             <button onClick={()=>deleteEntry(f.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#ccc",fontSize:16,lineHeight:1,marginLeft:8}}>×</button>
           </div>
-          <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:5}}>
-            {(f.cashPriceTotal||f.cashPricePP)&&<div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:6,padding:"4px 10px"}}>
-              {f.cashPriceTotal&&<span style={{fontSize:11,color:"#16a34a",fontWeight:700}}>{Number(f.cashPriceTotal).toLocaleString()} {f.cashCurrency} total</span>}
-              {f.cashPricePP&&<span style={{fontSize:11,color:"#16a34a"}}> · {Number(f.cashPricePP).toLocaleString()}/pp</span>}
-            </div>}
-            {f.milesPrice&&<div style={{background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:6,padding:"4px 10px"}}>
-              <span style={{fontSize:11,color:"#2563eb",fontWeight:700}}>{Number(f.milesPrice).toLocaleString()} mi</span>
-              {f.milesTaxTotal&&<span style={{fontSize:11,color:"#2563eb"}}> + {Number(f.milesTaxTotal).toLocaleString()} {f.milesTaxCurrency||"AED"} taxes</span>}
-              <span style={{fontSize:10,color:"#888",marginLeft:4}}>{f.milesProgram}</span>
-            </div>}
+          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:5}}>
+            {(f.cashPriceTotal||f.cashPricePP)&&(
+              <div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:6,padding:"4px 10px"}}>
+                {f.cashPriceTotal&&<span style={{fontSize:11,color:"#16a34a",fontWeight:700}}>{Number(f.cashPriceTotal).toLocaleString()} {f.cashCurrency}</span>}
+                {f.cashPricePP&&<span style={{fontSize:11,color:"#16a34a"}}> · {Number(f.cashPricePP).toLocaleString()}/pp</span>}
+                <span style={{fontSize:10,color:"#888",marginLeft:4}}>cash</span>
+              </div>
+            )}
+            {f.milesPrice&&(
+              <div style={{background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:6,padding:"4px 10px",display:"flex",alignItems:"center",gap:6}}>
+                <span style={{fontSize:11,color:"#2563eb",fontWeight:700}}>{Number(f.milesPrice).toLocaleString()} mi</span>
+                {f.milesTaxTotal&&(
+                  <>
+                    <span style={{color:"#93c5fd",fontSize:11}}>+</span>
+                    <span style={{fontSize:11,fontWeight:700,color:"#0369a1"}}>{Number(f.milesTaxTotal).toLocaleString()} {f.milesTaxCurrency||"AED"}</span>
+                    <span style={{fontSize:10,color:"#888"}}>taxes</span>
+                  </>
+                )}
+                {f.milesProgram&&<span style={{fontSize:10,color:"#888"}}>· {f.milesProgram}</span>}
+              </div>
+            )}
           </div>
           {(f.outboundDate||f.returnDate)&&<div style={{fontSize:11,color:"#888",marginBottom:3}}>✈ {f.outboundDate||""}{f.returnDate?` → ${f.returnDate}`:""} · {f.pax||2} pax</div>}
           {f.notes&&<div style={{fontSize:11,color:"#666",fontStyle:"italic",marginBottom:3}}>"{f.notes}"</div>}
