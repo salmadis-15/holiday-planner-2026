@@ -534,31 +534,44 @@ function Planner(){
   const balCol=n=>n<=5?"#ef4444":n<=10?"#f59e0b":"#10b981";
   const pct=(u,t)=>Math.min(100,Math.round((u/t)*100));
 
+  const [tripScanPreviews, setTripScanPreviews] = useState([]);
+  const [tripPendingImages, setTripPendingImages] = useState([]);
+
   function openNew(){
     setEditTrip({id:Date.now(),name:"",who:"both",start:"",end:"",status:"planned",color:"#ec4899",ptoDays:null,flights:[],isNew:true});
-    setPickerPerson("salma");setActiveTab("details");setTripCreateMode(null);setTripScanError("");setSheet("trip");
+    setPickerPerson("salma");setActiveTab("details");setTripCreateMode(null);setTripScanError("");
+    setTripScanPreviews([]);setTripPendingImages([]);setSheet("trip");
   }
   function openEdit(t){setEditTrip({flights:[],...t});setPickerPerson(t.who==="adis"?"adis":"salma");setActiveTab("details");setTripCreateMode("manual");setSheet("trip");}
 
   async function handleTripScreenshot(e){
     const file=e.target.files[0];if(!file)return;tripFileRef.current.value="";
-    setTripScanning(true);setTripScanError("");
     setTimeout(async()=>{
       try{
         const dataUrl=await new Promise((res,rej)=>{const r=new FileReader();r.onload=ev=>res(ev.target.result);r.onerror=rej;r.readAsDataURL(file);});
-        const results=await scanFlightScreenshots([{base64Image:dataUrl.split(",")[1],mediaType:file.type}]);
-        if(results&&results.length>0){
-          const r=results[0];
-          const dest=r.route?r.route.split(/->|→/).pop().trim():"";
-          const pax=r.pax||2;
-          const total=r.cashPriceTotal?String(r.cashPriceTotal):"";
-          const flight={...emptyFlight(),id:Date.now(),route:r.route||"",airline:r.airline||"",outboundDate:r.outboundDate||"",returnDate:r.returnDate||"",cabin:CABINS.includes(r.cabin)?r.cabin:"Economy",cashPriceTotal:total,cashPricePP:total&&pax?String(Math.round(+total/pax)):"",cashCurrency:CURRENCIES.includes(r.cashCurrency)?r.cashCurrency:"AED",milesPrice:r.milesPrice?String(r.milesPrice):"",milesTaxTotal:r.milesTaxTotal?String(r.milesTaxTotal):"",milesTaxCurrency:r.milesTaxCurrency||"AED",milesProgram:r.milesProgram||"Etihad Guest",pax,isRoundTrip:r.isRoundTrip??true,notes:r.notes||"",recordedAt:nowTs(),screenshots:[dataUrl]};
-          setEditTrip(t=>({...t,name:dest||t.name,start:r.outboundDate||t.start,end:r.returnDate||r.outboundDate||t.end,flights:[flight]}));
-          setTripCreateMode("manual");setActiveTab("details");
-        }else{setTripScanError("Couldn't read screenshot — please fill manually.");}
-      }catch{setTripScanError("Failed to process screenshot.");}
-      setTripScanning(false);
+        setTripScanPreviews(p=>[...p,dataUrl]);
+        setTripPendingImages(p=>[...p,{base64Image:dataUrl.split(",")[1],mediaType:file.type}]);
+        setTripScanError("");
+      }catch{setTripScanError("Failed to load image.");}
     },50);
+  }
+
+  async function runTripScan(){
+    if(!tripPendingImages.length)return;
+    setTripScanning(true);setTripScanError("");
+    try{
+      const results=await scanFlightScreenshots(tripPendingImages);
+      if(results&&results.length>0){
+        const r=results[0];
+        const dest=r.route?r.route.split(/->|→/).pop().trim():"";
+        const pax=r.pax||2;
+        const total=r.cashPriceTotal?String(r.cashPriceTotal):"";
+        const flight={...emptyFlight(),id:Date.now(),route:r.route||"",airline:r.airline||"",outboundDate:r.outboundDate||"",returnDate:r.returnDate||"",cabin:CABINS.includes(r.cabin)?r.cabin:"Economy",cashPriceTotal:total,cashPricePP:total&&pax?String(Math.round(+total/pax)):"",cashCurrency:CURRENCIES.includes(r.cashCurrency)?r.cashCurrency:"AED",milesPrice:r.milesPrice?String(r.milesPrice):"",milesTaxTotal:r.milesTaxTotal?String(r.milesTaxTotal):"",milesTaxCurrency:r.milesTaxCurrency||"AED",milesProgram:r.milesProgram||"Etihad Guest",pax,isRoundTrip:r.isRoundTrip??true,notes:r.notes||"",recordedAt:nowTs(),screenshots:tripScanPreviews};
+        setEditTrip(t=>({...t,name:dest||t.name,start:r.outboundDate||t.start,end:r.returnDate||r.outboundDate||t.end,flights:[flight]}));
+        setTripCreateMode("manual");setActiveTab("details");
+      }else{setTripScanError("Couldn't read screenshots — please fill manually.");}
+    }catch{setTripScanError("Failed to process screenshots.");}
+    setTripScanning(false);
   }
 
   function saveTrip(trip){
@@ -672,7 +685,7 @@ function Planner(){
       </div>
 
       {/* Trip sheet */}
-      <BottomSheet open={sheet==="trip"} onClose={()=>{setSheet(null);setTripCreateMode(null);setTripScanError("");}} title={editTrip?.isNew?"New trip":editTrip?.name||"Edit trip"}>
+      <BottomSheet open={sheet==="trip"} onClose={()=>{setSheet(null);setTripCreateMode(null);setTripScanError("");setTripScanPreviews([]);setTripPendingImages([]);}} title={editTrip?.isNew?"New trip":editTrip?.name||"Edit trip"}>
         {editTrip&&(
           <>
             {/* Mode picker — only for new trips */}
@@ -700,16 +713,40 @@ function Planner(){
                 <input type="file" accept="image/*" ref={tripFileRef} style={{display:"none"}} onChange={handleTripScreenshot}/>
                 {tripScanning?(
                   <div style={{textAlign:"center",padding:"32px 0",color:"#f59e0b"}}>
-                    <span className="spinner"/><span style={{fontSize:14,marginLeft:8}}>Reading screenshot…</span>
+                    <span className="spinner"/><span style={{fontSize:14,marginLeft:8}}>Reading screenshots…</span>
                   </div>
                 ):(
                   <>
-                    <div className="upload-zone" onClick={()=>tripFileRef.current.click()} style={{padding:24,marginBottom:12}}>
-                      <div style={{fontSize:32,marginBottom:8}}>📸</div>
-                      <div style={{fontSize:14,fontWeight:700,color:"#1a1a1a",marginBottom:4}}>Upload flight screenshot</div>
-                      <div style={{fontSize:12,color:"#888"}}>Claude will fill in destination, dates and add the first flight entry automatically</div>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                      <span style={{fontSize:13,fontWeight:600,color:"#555"}}>Add screenshots</span>
+                      <div style={{display:"flex",gap:6}}>
+                        <button onClick={()=>tripFileRef.current.click()} className="btn-secondary" style={{fontSize:12,padding:"5px 12px"}}>📸 Add</button>
+                        {tripPendingImages.length>0&&(
+                          <button onClick={runTripScan} style={{padding:"5px 14px",borderRadius:8,border:"none",background:"#ec4899",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer"}}>
+                            ✨ Scan {tripPendingImages.length}
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    {tripScanError&&<div style={{color:"#ef4444",fontSize:12,marginBottom:10,textAlign:"center"}}>{tripScanError}</div>}
+                    {tripScanError&&<div style={{color:"#ef4444",fontSize:12,marginBottom:10}}>{tripScanError}</div>}
+                    {tripScanPreviews.length===0?(
+                      <div className="upload-zone" onClick={()=>tripFileRef.current.click()} style={{padding:24,marginBottom:12}}>
+                        <div style={{fontSize:32,marginBottom:8}}>📸</div>
+                        <div style={{fontSize:14,fontWeight:700,color:"#1a1a1a",marginBottom:4}}>Upload flight screenshots</div>
+                        <div style={{fontSize:12,color:"#888"}}>Add outbound + return screenshots, then tap Scan</div>
+                      </div>
+                    ):(
+                      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
+                        {tripScanPreviews.map((src,i)=>(
+                          <div key={i} style={{position:"relative",width:80,height:80}}>
+                            <img src={src} style={{width:80,height:80,objectFit:"cover",borderRadius:8,border:"1px solid #e5e5e5"}} alt=""/>
+                            <button onClick={()=>{setTripScanPreviews(p=>p.filter((_,j)=>j!==i));setTripPendingImages(p=>p.filter((_,j)=>j!==i));}}
+                              style={{position:"absolute",top:-4,right:-4,background:"#ef4444",border:"none",borderRadius:10,color:"#fff",width:20,height:20,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+                          </div>
+                        ))}
+                        <div onClick={()=>tripFileRef.current.click()} style={{width:80,height:80,borderRadius:8,border:"2px dashed #e5e5e5",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#aaa",fontSize:24}}>+</div>
+                      </div>
+                    )}
                     <button onClick={()=>setTripCreateMode("manual")} style={{width:"100%",padding:"9px",borderRadius:8,border:"1px solid #ddd",background:"transparent",color:"#888",fontSize:13,cursor:"pointer"}}>
                       ✏️ Fill in manually instead
                     </button>
