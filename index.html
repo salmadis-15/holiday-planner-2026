@@ -423,27 +423,34 @@ function FlightTracker({flights=[],onChange}){
                 <button onClick={()=>setMode("upload")} style={{fontSize:11,color:"#aaa",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}}>← Back</button>
               </div>
               {scanResults.map((r,i)=>(
-                <div key={i} onClick={()=>setSelected(s=>({...s,[i]:!s[i]}))}
-                  style={{padding:"10px 12px",borderRadius:8,marginBottom:8,cursor:"pointer",border:`1.5px solid ${selected[i]?"#ec4899":"#e5e5e5"}`,background:selected[i]?"#fff7fb":"#fff",transition:"all 0.15s"}}>
+                <div key={i} style={{padding:"10px 12px",borderRadius:8,marginBottom:8,border:`1.5px solid ${selected[i]?"#ec4899":"#e5e5e5"}`,background:selected[i]?"#fff7fb":"#fff",transition:"all 0.15s"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                    <div style={{flex:1}}>
-                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                    <div style={{flex:1,cursor:"pointer"}} onClick={()=>setSelected(s=>({...s,[i]:!s[i]}))}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4,flexWrap:"wrap"}}>
                         <span style={{fontWeight:700,fontSize:13}}>{r.route}</span>
                         <span style={{fontSize:10,padding:"1px 7px",borderRadius:20,background:r.cabin==="Business"||r.cabin==="First"?"#fef3c7":"#f0f0f0",color:r.cabin==="Business"||r.cabin==="First"?"#92400e":"#666",fontWeight:600}}>{r.cabin}</span>
                         {r.isRoundTrip&&<span style={{fontSize:10,padding:"1px 7px",borderRadius:20,background:"#eff6ff",color:"#2563eb"}}>round trip</span>}
                       </div>
                       <div style={{fontSize:11,color:"#666",marginBottom:4}}>{r.airline}</div>
-                      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:4}}>
                         {r.cashPriceTotal&&<span style={{fontSize:12,fontWeight:700,color:"#16a34a"}}>{Number(r.cashPriceTotal).toLocaleString()} {r.cashCurrency} total{r.cashPricePP?` · ${Number(r.cashPricePP).toLocaleString()}/pp`:""}</span>}
                         {r.milesPrice&&<span style={{fontSize:12,fontWeight:700,color:"#2563eb"}}>{Number(r.milesPrice).toLocaleString()} mi{r.milesTaxTotal?` + ${Number(r.milesTaxTotal).toLocaleString()} ${r.milesTaxCurrency||"AED"} taxes`:""}{r.milesProgram?` (${r.milesProgram})`:""}</span>}
                       </div>
-                      {(r.outboundDate||r.returnDate)&&<div style={{fontSize:10,color:"#888",marginTop:3}}>✈ {r.outboundDate||""}{r.returnDate?` → ${r.returnDate}`:""} · {r.pax} pax</div>}
-                      {r.notes&&<div style={{fontSize:10,color:"#aaa",marginTop:2,fontStyle:"italic"}}>{r.notes}</div>}
+                      {(r.outboundDate||r.returnDate)&&<div style={{fontSize:10,color:"#888",marginBottom:4}}>✈ {r.outboundDate||""}{r.returnDate?` → ${r.returnDate}`:""} · {r.pax} pax</div>}
                     </div>
-                    <div style={{width:22,height:22,borderRadius:11,border:`2px solid ${selected[i]?"#ec4899":"#ddd"}`,background:selected[i]?"#ec4899":"#fff",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginLeft:8}}>
+                    <div onClick={()=>setSelected(s=>({...s,[i]:!s[i]}))} style={{width:22,height:22,borderRadius:11,border:`2px solid ${selected[i]?"#ec4899":"#ddd"}`,background:selected[i]?"#ec4899":"#fff",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginLeft:8,cursor:"pointer"}}>
                       {selected[i]&&<span style={{color:"#fff",fontSize:12,fontWeight:700}}>✓</span>}
                     </div>
                   </div>
+                  {/* Editable notes */}
+                  <textarea
+                    value={r.notes||""}
+                    onChange={e=>{const updated=[...scanResults];updated[i]={...updated[i],notes:e.target.value};setScanResults(updated);}}
+                    onClick={e=>e.stopPropagation()}
+                    placeholder="Add notes…"
+                    rows={2}
+                    style={{width:"100%",fontSize:10,color:"#666",fontStyle:"italic",background:"transparent",border:"1px solid #e5e5e5",borderRadius:5,padding:"4px 6px",resize:"vertical",marginTop:4,boxSizing:"border-box"}}
+                  />
                 </div>
               ))}
               <div style={{display:"flex",gap:8,marginTop:4}}>
