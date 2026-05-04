@@ -80,7 +80,7 @@ const CURRENCIES=["EUR","USD","AED","GBP","CHF"];
 const MILES_PROGRAMS=["Etihad Guest","Miles & More","Flying Blue","Avios","United MileagePlus","Emirates Skywards","Other"];
 const CORRECT_PIN="050393";
 const PIN_KEY="hp_auth_v2";
-const API_KEY_STORAGE="hp_anthropic_key";
+const API_KEY_STORAGE="hp_anthropic_key"; // kept for legacy cleanup only
 
 const DEFAULT={
   salma:{total:40},adis:{total:35},
@@ -113,38 +113,14 @@ function nowTs(){return new Date().toISOString();}
 function fmtTs(ts){const d=new Date(ts);return `${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)} ${d.getFullYear()}, ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;}
 
 // ── Scan screenshot via Claude API ───────────────────────────
-async function scanFlightScreenshot(base64Image, mediaType, apiKey) {
-  const prompt = `You are analyzing a flight search screenshot. Extract flight information and return ONLY a JSON object with these fields (use null for anything not visible):
-{
-  "route": "origin → destination (e.g. AUH → NRT)",
-  "airline": "airline name and flight number if visible",
-  "flightDate": "YYYY-MM-DD format if visible, else null",
-  "cabin": "Economy|Premium Economy|Business|First",
-  "cashPrice": "numeric only, no currency symbol",
-  "cashCurrency": "3-letter currency code e.g. EUR, USD, AED",
-  "milesPrice": "numeric only if miles price shown, else null",
-  "milesProgram": "miles program name if shown, else null",
-  "notes": "any other relevant info like stops, duration, taxes included"
-}
-Return ONLY the JSON object, no explanation.`;
-
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method:"POST",
-    headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01"},
-    body:JSON.stringify({
-      model:"claude-opus-4-6",
-      max_tokens:500,
-      messages:[{role:"user",content:[
-        {type:"image",source:{type:"base64",media_type:mediaType,data:base64Image}},
-        {type:"text",text:prompt}
-      ]}]
-    })
+async function scanFlightScreenshot(base64Image, mediaType) {
+  const res = await fetch("/.netlify/functions/scan-flight", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ base64Image, mediaType })
   });
-  if(!res.ok) throw new Error(`API error ${res.status}`);
-  const data=await res.json();
-  const text=data.content[0].text.trim();
-  const clean=text.replace(/```json|```/g,"").trim();
-  return JSON.parse(clean);
+  if (!res.ok) throw new Error(`Function error ${res.status}`);
+  return await res.json();
 }
 
 // ── PIN Screen ───────────────────────────────────────────────
@@ -286,7 +262,7 @@ function DayPicker({trip,person,onChange}){
 // ── Flight Tracker ───────────────────────────────────────────
 const emptyFlight=()=>({id:Date.now(),route:"",airline:"",flightDate:"",cabin:"Business",cashPrice:"",cashCurrency:"EUR",milesPrice:"",milesProgram:"Etihad Guest",notes:"",recordedAt:nowTs(),screenshot:null});
 
-function FlightTracker({flights=[],onChange,apiKey}){
+function FlightTracker({flights=[],onChange}){
   const [adding,setAdding]=useState(false);
   const [form,setForm]=useState(emptyFlight());
   const [scanning,setScanning]=useState(false);
@@ -309,7 +285,7 @@ function FlightTracker({flights=[],onChange,apiKey}){
       if(apiKey){
         setScanning(true);setScanError("");
         try{
-          const result=await scanFlightScreenshot(base64,mediaType,apiKey);
+          const result=await scanFlightScreenshot(base64,mediaType);
           setForm(f=>({...f,
             route:result.route||f.route,
             airline:result.airline||f.airline,
@@ -374,8 +350,8 @@ function FlightTracker({flights=[],onChange,apiKey}){
                 ):(
                   <>
                     <div style={{fontSize:24,marginBottom:6}}>📸</div>
-                    <div style={{fontSize:13,fontWeight:600,color:"#555",marginBottom:2}}>{apiKey?"Upload screenshot to autofill":"Upload screenshot"}</div>
-                    <div style={{fontSize:11,color:"#aaa"}}>{apiKey?"Claude will read the flight details automatically":"Image will be saved with the entry"}</div>
+                    <div style={{fontSize:13,fontWeight:600,color:"#555",marginBottom:2}}>Upload screenshot to autofill</div>
+                    <div style={{fontSize:11,color:"#aaa"}}>Claude will read the flight details automatically</div>
                   </>
                 )}
               </div>
@@ -468,24 +444,17 @@ function FlightTracker({flights=[],onChange,apiKey}){
 // ── Main App ─────────────────────────────────────────────────
 function App(){
   const [unlocked,setUnlocked]=useState(!!sessionStorage.getItem(PIN_KEY));
-  const [apiKey,setApiKey]=useState(localStorage.getItem(API_KEY_STORAGE));
-  const [apiKeySetup,setApiKeySetup]=useState(false);
 
   useEffect(()=>{
     if(unlocked&&window._fbAuth&&!window._fbAuth.currentUser)
       window._fbSignInAnonymously(window._fbAuth).catch(console.error);
   },[unlocked]);
 
-  useEffect(()=>{
-    if(unlocked&&apiKey===null)setApiKeySetup(true);
-  },[unlocked,apiKey]);
-
   if(!unlocked)return<PinScreen onUnlock={()=>setUnlocked(true)}/>;
-  if(apiKeySetup)return<ApiKeyScreen onSave={k=>{setApiKey(k);setApiKeySetup(false);}}/>;
-  return<Planner apiKey={apiKey}/>;
+  return<Planner/>;
 }
 
-function Planner({apiKey}){
+function Planner(){
   const [state,setState]=useState(null);
   const [synced,setSynced]=useState(false);
   const [year,setYear]=useState(2026);
@@ -706,7 +675,7 @@ function Planner({apiKey}){
             )}
 
             {activeTab==="flights"&&(
-              <FlightTracker flights={editTrip.flights||[]} apiKey={apiKey}
+              <FlightTracker flights={editTrip.flights||[]}
                 onChange={flights=>{setEditTrip(t=>({...t,flights}));if(!editTrip.isNew)updateFlights(editTrip.id,flights);}}/>
             )}
           </>
