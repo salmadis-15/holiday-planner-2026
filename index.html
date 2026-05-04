@@ -367,7 +367,7 @@ function FlightTracker({flights=[],onChange}){
           </div>}
           {bestMiles&&<div style={{background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:8,padding:"8px 10px"}}>
             <div style={{fontSize:10,color:"#2563eb",fontWeight:600,marginBottom:2}}>BEST MILES</div>
-            <div style={{fontSize:15,fontWeight:700,color:"#1d4ed8"}}>{Number(bestMiles.milesPrice).toLocaleString()} mi</div>
+            <div style={{fontSize:15,fontWeight:700,color:"#1d4ed8"}}>{Number(bestMiles.milesPrice).toLocaleString()} mi{bestMiles.milesTaxTotal?<span style={{fontSize:13,fontWeight:600,color:"#0369a1"}}> + {Number(bestMiles.milesTaxTotal).toLocaleString()} {bestMiles.milesTaxCurrency||"AED"}</span>:""}</div>
             <div style={{fontSize:10,color:"#666"}}>{bestMiles.milesProgram} · {bestMiles.cabin}</div>
           </div>}
         </div>
@@ -659,10 +659,71 @@ function Planner(){
   const balCol=n=>n<=5?"#ef4444":n<=10?"#f59e0b":"#10b981";
   const pct=(u,t)=>Math.min(100,Math.round((u/t)*100));
 
-  function openNew(){setEditTrip({id:Date.now(),name:"",who:"both",start:"",end:"",status:"planned",color:"#ec4899",ptoDays:null,flights:[],isNew:true});setPickerPerson("salma");setActiveTab("details");setSheet("trip");}
-  function openEdit(t){setEditTrip({flights:[],...t});setPickerPerson(t.who==="adis"?"adis":"salma");setActiveTab("details");setSheet("trip");}
+  function openNew(){
+    setEditTrip({id:Date.now(),name:"",who:"both",start:"",end:"",status:"planned",color:"#ec4899",ptoDays:null,flights:[],isNew:true});
+    setPickerPerson("salma");setActiveTab("details");setTripScanMode(false);setSheet("trip");
+  }
 
-  function saveTrip(trip){
+  const [tripScanMode, setTripScanMode] = useState(false);
+  const [tripScanning, setTripScanning] = useState(false);
+  const [tripScanError, setTripScanError] = useState("");
+  const tripFileRef = useRef();  function openEdit(t){setEditTrip({flights:[],...t});setPickerPerson(t.who==="adis"?"adis":"salma");setActiveTab("details");setSheet("trip");}
+
+  async function handleTripScreenshot(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    tripFileRef.current.value = "";
+    setTripScanning(true); setTripScanError("");
+    setTimeout(async () => {
+      try {
+        const dataUrl = await new Promise((res, rej) => {
+          const r = new FileReader(); r.onload = ev => res(ev.target.result); r.onerror = rej; r.readAsDataURL(file);
+        });
+        const base64 = dataUrl.split(",")[1];
+        const results = await scanFlightScreenshots([{base64Image: base64, mediaType: file.type}]);
+        if (results && results.length > 0) {
+          const r = results[0];
+          // derive destination name from route
+          const dest = r.route ? r.route.split(/->|→/).pop().trim() : "";
+          const pax = r.pax || 2;
+          const total = r.cashPriceTotal ? String(r.cashPriceTotal) : "";
+          const flight = {
+            ...emptyFlight(),
+            id: Date.now(),
+            route: r.route || "",
+            airline: r.airline || "",
+            outboundDate: r.outboundDate || "",
+            returnDate: r.returnDate || "",
+            cabin: CABINS.includes(r.cabin) ? r.cabin : "Economy",
+            cashPriceTotal: total,
+            cashPricePP: total && pax ? String(Math.round(+total / pax)) : "",
+            cashCurrency: CURRENCIES.includes(r.cashCurrency) ? r.cashCurrency : "AED",
+            milesPrice: r.milesPrice ? String(r.milesPrice) : "",
+            milesTaxTotal: r.milesTaxTotal ? String(r.milesTaxTotal) : "",
+            milesTaxCurrency: r.milesTaxCurrency || "AED",
+            milesProgram: r.milesProgram || "Etihad Guest",
+            pax,
+            isRoundTrip: r.isRoundTrip ?? true,
+            notes: r.notes || "",
+            recordedAt: nowTs(),
+            screenshots: [dataUrl]
+          };
+          setEditTrip(t => ({
+            ...t,
+            name: dest || t.name,
+            start: r.outboundDate || t.start,
+            end: r.returnDate || r.outboundDate || t.end,
+            flights: [flight]
+          }));
+          setTripScanMode(false);
+          setActiveTab("details");
+        } else {
+          setTripScanError("Couldn't read screenshot — please fill in manually.");
+        }
+      } catch { setTripScanError("Failed to process screenshot."); }
+      setTripScanning(false);
+    }, 50);
+  }
     const{isNew,...t}=trip;const isScen=t.status==="planned";
     const others=[...state.trips,...state.scenarios].filter(x=>x.id!==t.id);
     save({...state,trips:[...others.filter(x=>x.status==="committed"),...(isScen?[]:[t])],scenarios:[...others.filter(x=>x.status==="planned"),...(isScen?[t]:[])]});
@@ -776,9 +837,55 @@ function Planner(){
         <button className="fab" onClick={openNew} style={{width:56,height:56,borderRadius:28,background:"#ec4899",color:"#fff",fontSize:26}}>+</button>
       </div>
 
-      <BottomSheet open={sheet==="trip"} onClose={()=>setSheet(null)} title={editTrip?.isNew?"New trip":editTrip?.name||"Edit trip"}>
+      <BottomSheet open={sheet==="trip"} onClose={()=>{setSheet(null);setTripScanMode(false);setTripScanError("");}} title={editTrip?.isNew?"New trip":editTrip?.name||"Edit trip"}>
         {editTrip&&(
           <>
+            {/* New trip — choose mode */}
+            {editTrip.isNew&&tripScanMode&&(
+              <div style={{marginBottom:16}}>
+                <input type="file" accept="image/*" ref={tripFileRef} style={{display:"none"}} onChange={handleTripScreenshot}/>
+                {tripScanning?(
+                  <div style={{textAlign:"center",padding:"24px 0",color:"#f59e0b"}}>
+                    <span className="spinner"/><span style={{fontSize:13,marginLeft:8}}>Reading screenshot…</span>
+                  </div>
+                ):(
+                  <>
+                    <div className="upload-zone" onClick={()=>tripFileRef.current.click()} style={{padding:20,marginBottom:10}}>
+                      <div style={{fontSize:28,marginBottom:8}}>📸</div>
+                      <div style={{fontSize:14,fontWeight:700,color:"#1a1a1a",marginBottom:4}}>Upload a flight screenshot</div>
+                      <div style={{fontSize:12,color:"#888"}}>Claude will fill in the destination, dates and first flight entry automatically</div>
+                    </div>
+                    {tripScanError&&<div style={{color:"#ef4444",fontSize:12,marginBottom:8,textAlign:"center"}}>{tripScanError}</div>}
+                    <button onClick={()=>{setTripScanMode(false);setTripScanError("");}} style={{width:"100%",padding:"9px",borderRadius:8,border:"1px solid #ddd",background:"transparent",color:"#888",fontSize:13,cursor:"pointer"}}>
+                      ✏️ Fill in manually instead
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Mode picker for new trips */}
+            {editTrip.isNew&&!tripScanMode&&(
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:16}}>
+                <button onClick={()=>{setTripScanMode(true);setTripScanError("");}}
+                  style={{padding:"12px 8px",borderRadius:10,border:"1px solid #e5e5e5",background:"#fafafa",cursor:"pointer",textAlign:"center"}}>
+                  <div style={{fontSize:22,marginBottom:4}}>📸</div>
+                  <div style={{fontSize:13,fontWeight:700,color:"#1a1a1a",marginBottom:2}}>From screenshot</div>
+                  <div style={{fontSize:11,color:"#888"}}>Auto-fill from flight search</div>
+                </button>
+                <button onClick={()=>setTripScanMode(false)}
+                  style={{padding:"12px 8px",borderRadius:10,border:"1px solid #e5e5e5",background:"#fafafa",cursor:"pointer",textAlign:"center"}}>
+                  <div style={{fontSize:22,marginBottom:4}}>✏️</div>
+                  <div style={{fontSize:13,fontWeight:700,color:"#1a1a1a",marginBottom:2}}>Manual entry</div>
+                  <div style={{fontSize:11,color:"#888"}}>Fill in dates and details</div>
+                </button>
+              </div>
+            )}
+
+            {/* Hide main form while in scan upload mode */}
+            {(!editTrip.isNew||!tripScanMode)&&(
+              <>
+
             <div style={{display:"flex",gap:0,marginBottom:16,borderBottom:"1px solid #e5e5e5"}}>
               {[["details","Details"],["flights",`Flights${editTrip.flights?.length>0?` (${editTrip.flights.length})`:""}`]].map(([t,l])=>(
                 <button key={t} onClick={()=>setActiveTab(t)}
@@ -833,9 +940,11 @@ function Planner(){
               </>
             )}
 
-            {activeTab==="flights"&&(
+            {(!editTrip.isNew||!tripScanMode)&&activeTab==="flights"&&(
               <FlightTracker flights={editTrip.flights||[]}
                 onChange={flights=>{setEditTrip(t=>({...t,flights}));if(!editTrip.isNew)updateFlights(editTrip.id,flights);}}/>
+            )}
+              </>
             )}
           </>
         )}
