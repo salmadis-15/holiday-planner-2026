@@ -21,8 +21,7 @@
     appId: "1:623493853821:web:c54ac5c49199613bff3714"
   };
   const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
-  const auth = getAuth(app);
+  const db = getDatabase(app); const auth = getAuth(app);
   window._fbDb=db; window._fbAuth=auth; window._fbRef=ref; window._fbSet=set;
   window._fbOnValue=onValue; window._fbSignInAnonymously=signInAnonymously;
   window._fbReady=true; window.dispatchEvent(new Event("firebase-ready"));
@@ -60,9 +59,10 @@
   .tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;}
   .upload-zone{border:2px dashed #e5e5e5;border-radius:10px;padding:20px;text-align:center;cursor:pointer;transition:border-color 0.2s;background:#fafafa;}
   .upload-zone:hover{border-color:#ec4899;}
-  .upload-zone.scanning{border-color:#f59e0b;background:#fffbeb;}
   .spinner{display:inline-block;width:16px;height:16px;border:2px solid #f59e0b;border-top-color:transparent;border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:6px;}
   @keyframes spin{to{transform:rotate(360deg);}}
+  .mode-card{padding:16px 12px;border-radius:10px;border:1.5px solid #e5e5e5;background:#fafafa;cursor:pointer;text-align:center;transition:all 0.15s;}
+  .mode-card:hover{border-color:#ec4899;background:#fff7fb;}
 </style>
 </head>
 <body>
@@ -80,7 +80,6 @@ const CURRENCIES=["EUR","USD","AED","GBP","CHF"];
 const MILES_PROGRAMS=["Etihad Guest","Miles & More","Flying Blue","Avios","United MileagePlus","Emirates Skywards","Other"];
 const CORRECT_PIN="050393";
 const PIN_KEY="hp_auth_v2";
-const API_KEY_STORAGE="hp_anthropic_key"; // kept for legacy cleanup only
 
 const DEFAULT={
   salma:{total:40},adis:{total:35},
@@ -111,28 +110,22 @@ function getDaysUsed(trips,who,sf){
 }
 function nowTs(){return new Date().toISOString();}
 function fmtTs(ts){const d=new Date(ts);return `${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)} ${d.getFullYear()}, ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;}
+const emptyFlight=()=>({id:Date.now(),route:"",airline:"",outboundDate:"",returnDate:"",cabin:"Business",cashPriceTotal:"",cashPricePP:"",cashCurrency:"AED",milesPrice:"",milesTaxTotal:"",milesTaxCurrency:"AED",milesProgram:"Etihad Guest",pax:2,isRoundTrip:true,notes:"",recordedAt:nowTs(),screenshots:[]});
 
-// ── Scan screenshot via Claude API ───────────────────────────
-async function scanFlightScreenshots(images) {
-  const res = await fetch("/.netlify/functions/scan-flight", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ images })
-  });
-  if (!res.ok) throw new Error(`Function error ${res.status}`);
-  return await res.json(); // returns array of flight entries
+async function scanFlightScreenshots(images){
+  const res=await fetch("/.netlify/functions/scan-flight",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({images,currentYear:new Date().getFullYear()})});
+  if(!res.ok)throw new Error(`Function error ${res.status}`);
+  return await res.json();
 }
 
-// ── PIN Screen ───────────────────────────────────────────────
+// ── PIN ──────────────────────────────────────────────────────
 function PinScreen({onUnlock}){
-  const [pin,setPin]=useState("");
-  const [error,setError]=useState(false);
-  const [loading,setLoading]=useState(false);
+  const [pin,setPin]=useState(""); const [error,setError]=useState(false); const [loading,setLoading]=useState(false);
   async function submit(){
     if(pin!==CORRECT_PIN){setError(true);setPin("");return;}
     setLoading(true);
     try{await window._fbSignInAnonymously(window._fbAuth);sessionStorage.setItem(PIN_KEY,"1");onUnlock();}
-    catch(e){setError(true);}
+    catch{setError(true);}
     setLoading(false);
   }
   return(
@@ -141,9 +134,7 @@ function PinScreen({onUnlock}){
         <div style={{fontSize:32,marginBottom:12}}>🗓</div>
         <h2 style={{fontSize:18,fontWeight:700,marginBottom:4}}>Holiday Planner</h2>
         <p style={{fontSize:13,color:"#888",marginBottom:24}}>Salma & Adis · Enter PIN to continue</p>
-        <input type="password" inputMode="numeric" maxLength={6} value={pin}
-          onChange={e=>{setPin(e.target.value);setError(false);}}
-          onKeyDown={e=>e.key==="Enter"&&submit()} placeholder="······"
+        <input type="password" inputMode="numeric" maxLength={6} value={pin} onChange={e=>{setPin(e.target.value);setError(false);}} onKeyDown={e=>e.key==="Enter"&&submit()} placeholder="······"
           style={{width:"100%",padding:"12px",borderRadius:8,border:`1.5px solid ${error?"#ef4444":"#ddd"}`,background:"#fafafa",fontSize:22,textAlign:"center",letterSpacing:6,marginBottom:8,boxSizing:"border-box"}}/>
         {error&&<div style={{color:"#ef4444",fontSize:12,marginBottom:8}}>Incorrect PIN — try again</div>}
         <button onClick={submit} disabled={loading||pin.length<4}
@@ -155,46 +146,7 @@ function PinScreen({onUnlock}){
   );
 }
 
-// ── API Key Setup Screen ──────────────────────────────────────
-function ApiKeyScreen({onSave}){
-  const [key,setKey]=useState("");
-  const [error,setError]=useState("");
-  const [testing,setTesting]=useState(false);
-  async function save(){
-    if(!key.startsWith("sk-ant-")){setError("Key should start with sk-ant-");return;}
-    setTesting(true);setError("");
-    try{
-      const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01"},body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:10,messages:[{role:"user",content:"hi"}]})});
-      if(!res.ok)throw new Error("Invalid key");
-      localStorage.setItem(API_KEY_STORAGE,key);
-      onSave(key);
-    }catch(e){setError("Could not verify key — please check it and try again.");}
-    setTesting(false);
-  }
-  return(
-    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f5f5f5"}}>
-      <div style={{background:"#fff",border:"1px solid #e5e5e5",borderRadius:16,padding:"32px 28px",width:340,boxShadow:"0 4px 24px rgba(0,0,0,0.08)"}}>
-        <div style={{fontSize:28,marginBottom:12,textAlign:"center"}}>✈️</div>
-        <h2 style={{fontSize:16,fontWeight:700,marginBottom:6,textAlign:"center"}}>Enable AI flight scanning</h2>
-        <p style={{fontSize:13,color:"#888",marginBottom:20,textAlign:"center"}}>Enter your Anthropic API key to scan flight screenshots automatically. It's stored only in your browser.</p>
-        <div style={{marginBottom:8}}>
-          <input className="text-input" type="password" value={key} onChange={e=>setKey(e.target.value)}
-            placeholder="sk-ant-api03-…" style={{fontSize:13}}/>
-        </div>
-        {error&&<div style={{color:"#ef4444",fontSize:12,marginBottom:8}}>{error}</div>}
-        <button onClick={save} disabled={testing||!key}
-          style={{width:"100%",padding:"10px",borderRadius:8,border:"none",background:key?"#ec4899":"#e5e5e5",color:"#fff",fontWeight:700,fontSize:13,cursor:key?"pointer":"default",marginBottom:10}}>
-          {testing?"Verifying…":"Save & continue"}
-        </button>
-        <button onClick={()=>onSave(null)} style={{width:"100%",padding:"8px",borderRadius:8,border:"1px solid #ddd",background:"transparent",color:"#aaa",fontSize:12,cursor:"pointer"}}>
-          Skip — I'll fill flights manually
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ── Bottom Sheet ─────────────────────────────────────────────
+// ── Shared UI ─────────────────────────────────────────────────
 function BottomSheet({open,onClose,title,children}){
   useEffect(()=>{document.body.style.overflow=open?"hidden":"";return()=>{document.body.style.overflow="";};},[open]);
   if(!open)return null;
@@ -210,7 +162,6 @@ function BottomSheet({open,onClose,title,children}){
     </div>
   );
 }
-
 function ToggleGroup({options,value,onChange,accent="#ec4899"}){
   return(
     <div className="toggle-group">
@@ -223,7 +174,6 @@ function ToggleGroup({options,value,onChange,accent="#ec4899"}){
     </div>
   );
 }
-
 function DayPicker({trip,person,onChange}){
   if(!trip.start||!trip.end||trip.start>trip.end)return null;
   const w=workDays(trip.start,trip.end,person);
@@ -259,9 +209,7 @@ function DayPicker({trip,person,onChange}){
   );
 }
 
-// ── Flight Tracker ───────────────────────────────────────────
-const emptyFlight=()=>({id:Date.now(),route:"",airline:"",outboundDate:"",returnDate:"",cabin:"Business",cashPriceTotal:"",cashPricePP:"",cashCurrency:"AED",milesPrice:"",milesTaxTotal:"",milesTaxCurrency:"AED",milesProgram:"Etihad Guest",pax:2,isRoundTrip:true,notes:"",recordedAt:nowTs(),screenshots:[]});
-
+// ── Flight Tracker ────────────────────────────────────────────
 function FlightTracker({flights=[],onChange}){
   const [adding,setAdding]=useState(false);
   const [form,setForm]=useState(emptyFlight());
@@ -269,9 +217,9 @@ function FlightTracker({flights=[],onChange}){
   const [scanError,setScanError]=useState("");
   const [previews,setPreviews]=useState([]);
   const [pendingImages,setPendingImages]=useState([]);
-  const [scanResults,setScanResults]=useState(null); // array of options from Claude
-  const [selected,setSelected]=useState({}); // {idx: true/false}
-  const [mode,setMode]=useState("upload"); // "upload" | "review" | "manual"
+  const [scanResults,setScanResults]=useState(null);
+  const [selected,setSelected]=useState({});
+  const [mode,setMode]=useState("upload");
   const fileRef=useRef();
 
   const bestCash=flights.filter(f=>f.cashPricePP||f.cashPriceTotal).sort((a,b)=>+(a.cashPricePP||a.cashPriceTotal)-+(b.cashPricePP||b.cashPriceTotal))[0];
@@ -280,16 +228,11 @@ function FlightTracker({flights=[],onChange}){
   function reset(){setForm(emptyFlight());setPreviews([]);setPendingImages([]);setScanResults(null);setSelected({});setMode("upload");setScanError("");}
 
   async function handleScreenshot(e){
-    const file=e.target.files[0];
-    if(!file)return;
-    fileRef.current.value="";
+    const file=e.target.files[0];if(!file)return;fileRef.current.value="";
     setTimeout(async()=>{
       try{
         const dataUrl=await new Promise((res,rej)=>{const r=new FileReader();r.onload=ev=>res(ev.target.result);r.onerror=rej;r.readAsDataURL(file);});
-        const base64=dataUrl.split(",")[1];
-        setPreviews(p=>[...p,dataUrl]);
-        setPendingImages(p=>[...p,{base64Image:base64,mediaType:file.type}]);
-        setScanError("");
+        setPreviews(p=>[...p,dataUrl]);setPendingImages(p=>[...p,{base64Image:dataUrl.split(",")[1],mediaType:file.type}]);setScanError("");
       }catch{setScanError("Failed to load image.");}
     },50);
   }
@@ -300,35 +243,18 @@ function FlightTracker({flights=[],onChange}){
     try{
       const results=await scanFlightScreenshots(pendingImages);
       if(results&&results.length>0){
-        // enrich with per-person price
-        const enriched=results.map(r=>({
-          ...r,
-          cashPricePP:r.cashPriceTotal&&r.pax?String(Math.round(+r.cashPriceTotal/r.pax)):null,
-          screenshots:previews
-        }));
+        const enriched=results.map(r=>({...r,cashPricePP:r.cashPriceTotal&&r.pax?String(Math.round(+r.cashPriceTotal/r.pax)):null,screenshots:previews}));
         setScanResults(enriched);
-        // pre-select all
-        const sel={};enriched.forEach((_,i)=>{sel[i]=true;});
-        setSelected(sel);
-        setMode("review");
-      } else {
-        setScanError("No flight options found — try manual entry.");
-        setMode("manual");
-      }
-    }catch{setScanError("Couldn't read screenshots — try manual entry.");setMode("manual");}
+        const sel={};enriched.forEach((_,i)=>{sel[i]=true;});setSelected(sel);setMode("review");
+      }else{setScanError("No options found — try manual entry.");setMode("manual");}
+    }catch{setScanError("Scan failed — try manual entry.");setMode("manual");}
     setScanning(false);
   }
 
   function saveSelected(){
     const toSave=scanResults.filter((_,i)=>selected[i]);
     if(!toSave.length)return;
-    const newFlights=toSave.map(r=>({
-      ...emptyFlight(),...r,
-      id:Date.now()+Math.random(),
-      recordedAt:nowTs(),
-      screenshots:previews
-    }));
-    onChange([...flights,...newFlights]);
+    onChange([...flights,...toSave.map(r=>({...emptyFlight(),...r,id:Date.now()+Math.random(),recordedAt:nowTs(),screenshots:previews}))]);
     reset();setAdding(false);
   }
 
@@ -339,25 +265,33 @@ function FlightTracker({flights=[],onChange}){
   }
 
   function deleteEntry(id){onChange(flights.filter(f=>f.id!==id));}
-  function removePreview(idx){
-    setPreviews(p=>p.filter((_,i)=>i!==idx));
-    setPendingImages(p=>p.filter((_,i)=>i!==idx));
-  }
-
+  function removePreview(idx){setPreviews(p=>p.filter((_,i)=>i!==idx));setPendingImages(p=>p.filter((_,i)=>i!==idx));}
   function handlePaxChange(val){const n=+val;setForm(f=>{const total=f.cashPriceTotal?+f.cashPriceTotal:null,pp=f.cashPricePP?+f.cashPricePP:null;return{...f,pax:n,cashPricePP:total&&n?String(Math.round(total/n)):f.cashPricePP,cashPriceTotal:pp&&n?String(Math.round(pp*n)):f.cashPriceTotal};});}
   function handleTotalChange(val){setForm(f=>({...f,cashPriceTotal:val,cashPricePP:val&&f.pax?String(Math.round(+val/f.pax)):""}));}
   function handlePPChange(val){setForm(f=>({...f,cashPricePP:val,cashPriceTotal:val&&f.pax?String(Math.round(+val*f.pax)):""}));}
+
+  const PriceTag=({f})=>(
+    <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:5}}>
+      {(f.cashPriceTotal||f.cashPricePP)&&<div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:6,padding:"4px 10px"}}>
+        {f.cashPriceTotal&&<span style={{fontSize:11,color:"#16a34a",fontWeight:700}}>{Number(f.cashPriceTotal).toLocaleString()} {f.cashCurrency}</span>}
+        {f.cashPricePP&&<span style={{fontSize:11,color:"#16a34a"}}> · {Number(f.cashPricePP).toLocaleString()}/pp</span>}
+        <span style={{fontSize:10,color:"#888",marginLeft:4}}>cash</span>
+      </div>}
+      {f.milesPrice&&<div style={{background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:6,padding:"4px 10px",display:"flex",alignItems:"center",gap:5}}>
+        <span style={{fontSize:11,color:"#2563eb",fontWeight:700}}>{Number(f.milesPrice).toLocaleString()} mi</span>
+        {f.milesTaxTotal&&<><span style={{color:"#93c5fd"}}>+</span><span style={{fontSize:11,fontWeight:700,color:"#0369a1"}}>{Number(f.milesTaxTotal).toLocaleString()} {f.milesTaxCurrency||"AED"}</span><span style={{fontSize:10,color:"#888"}}>taxes</span></>}
+        {f.milesProgram&&<span style={{fontSize:10,color:"#888"}}>· {f.milesProgram}</span>}
+      </div>}
+    </div>
+  );
 
   return(
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
         <span style={{fontSize:13,fontWeight:700}}>✈️ Flight options</span>
-        <button onClick={()=>{if(adding){reset();setAdding(false);}else{reset();setAdding(true);}}} className="btn-secondary">
-          {adding?"Cancel":"+ Add option"}
-        </button>
+        <button onClick={()=>{if(adding){reset();setAdding(false);}else{reset();setAdding(true);}}} className="btn-secondary">{adding?"Cancel":"+ Add option"}</button>
       </div>
 
-      {/* Best price summary */}
       {flights.length>1&&(
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
           {bestCash&&<div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,padding:"8px 10px"}}>
@@ -367,7 +301,7 @@ function FlightTracker({flights=[],onChange}){
           </div>}
           {bestMiles&&<div style={{background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:8,padding:"8px 10px"}}>
             <div style={{fontSize:10,color:"#2563eb",fontWeight:600,marginBottom:2}}>BEST MILES</div>
-            <div style={{fontSize:15,fontWeight:700,color:"#1d4ed8"}}>{Number(bestMiles.milesPrice).toLocaleString()} mi{bestMiles.milesTaxTotal?<span style={{fontSize:13,fontWeight:600,color:"#0369a1"}}> + {Number(bestMiles.milesTaxTotal).toLocaleString()} {bestMiles.milesTaxCurrency||"AED"}</span>:""}</div>
+            <div style={{fontSize:15,fontWeight:700,color:"#1d4ed8"}}>{Number(bestMiles.milesPrice).toLocaleString()} mi{bestMiles.milesTaxTotal&&<span style={{fontSize:13,fontWeight:600,color:"#0369a1"}}> + {Number(bestMiles.milesTaxTotal).toLocaleString()} {bestMiles.milesTaxCurrency||"AED"}</span>}</div>
             <div style={{fontSize:10,color:"#666"}}>{bestMiles.milesProgram} · {bestMiles.cabin}</div>
           </div>}
         </div>
@@ -375,84 +309,61 @@ function FlightTracker({flights=[],onChange}){
 
       {adding&&(
         <div style={{background:"#fafafa",border:"1px solid #e5e5e5",borderRadius:10,padding:12,marginBottom:12}}>
-
-          {/* ── UPLOAD MODE ── */}
           {mode==="upload"&&(
             <>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                <span style={{fontSize:12,fontWeight:600,color:"#555"}}>Add screenshots</span>
+                <span style={{fontSize:12,fontWeight:600,color:"#555"}}>Screenshots</span>
                 <div style={{display:"flex",gap:6,alignItems:"center"}}>
                   <input type="file" accept="image/*" ref={fileRef} style={{display:"none"}} onChange={handleScreenshot}/>
                   <button onClick={()=>fileRef.current.click()} className="btn-secondary" style={{fontSize:11,padding:"4px 10px"}}>📸 Add</button>
-                  {pendingImages.length>0&&!scanning&&(
-                    <button onClick={runScan} style={{padding:"4px 12px",borderRadius:8,border:"none",background:"#ec4899",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>
-                      ✨ Scan {pendingImages.length}
-                    </button>
-                  )}
+                  {pendingImages.length>0&&!scanning&&<button onClick={runScan} style={{padding:"4px 12px",borderRadius:8,border:"none",background:"#ec4899",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>✨ Scan {pendingImages.length}</button>}
                   {scanning&&<span style={{fontSize:11,color:"#f59e0b",display:"flex",alignItems:"center",gap:4}}><span className="spinner"/>Scanning…</span>}
                 </div>
               </div>
               {scanError&&<div style={{color:"#ef4444",fontSize:11,marginBottom:8}}>{scanError}</div>}
-              {previews.length===0?(
-                <div className="upload-zone" onClick={()=>fileRef.current.click()} style={{padding:14}}>
-                  <div style={{fontSize:22,marginBottom:4}}>📸</div>
-                  <div style={{fontSize:12,fontWeight:600,color:"#555",marginBottom:2}}>Upload flight screenshots</div>
-                  <div style={{fontSize:11,color:"#aaa"}}>Add all screenshots, then tap Scan — Claude will find all options</div>
-                </div>
-              ):(
-                <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>
-                  {previews.map((src,i)=>(
-                    <div key={i} style={{position:"relative",width:72,height:72}}>
-                      <img src={src} style={{width:72,height:72,objectFit:"cover",borderRadius:6,border:"1px solid #e5e5e5"}} alt=""/>
-                      <button onClick={()=>removePreview(i)} style={{position:"absolute",top:-4,right:-4,background:"#ef4444",border:"none",borderRadius:10,color:"#fff",width:18,height:18,cursor:"pointer",fontSize:11,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <button onClick={()=>setMode("manual")} style={{fontSize:11,color:"#aaa",background:"none",border:"none",cursor:"pointer",marginTop:4,textDecoration:"underline"}}>
-                Skip — enter manually
-              </button>
+              {previews.length===0?<div className="upload-zone" onClick={()=>fileRef.current.click()} style={{padding:14}}>
+                <div style={{fontSize:22,marginBottom:4}}>📸</div>
+                <div style={{fontSize:12,fontWeight:600,color:"#555",marginBottom:2}}>Upload flight screenshots</div>
+                <div style={{fontSize:11,color:"#aaa"}}>Add all screenshots, then tap Scan</div>
+              </div>:
+              <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>
+                {previews.map((src,i)=>(
+                  <div key={i} style={{position:"relative",width:72,height:72}}>
+                    <img src={src} style={{width:72,height:72,objectFit:"cover",borderRadius:6,border:"1px solid #e5e5e5"}} alt=""/>
+                    <button onClick={()=>removePreview(i)} style={{position:"absolute",top:-4,right:-4,background:"#ef4444",border:"none",borderRadius:10,color:"#fff",width:18,height:18,cursor:"pointer",fontSize:11,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+                  </div>
+                ))}
+              </div>}
+              <button onClick={()=>setMode("manual")} style={{fontSize:11,color:"#aaa",background:"none",border:"none",cursor:"pointer",marginTop:4,textDecoration:"underline"}}>Skip — enter manually</button>
             </>
           )}
 
-          {/* ── REVIEW MODE ── */}
           {mode==="review"&&scanResults&&(
             <>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-                <span style={{fontSize:12,fontWeight:700,color:"#1a1a1a"}}>✨ Found {scanResults.length} option{scanResults.length>1?"s":""} — select to save</span>
+                <span style={{fontSize:12,fontWeight:700}}>✨ Found {scanResults.length} option{scanResults.length>1?"s":""} — select to save</span>
                 <button onClick={()=>setMode("upload")} style={{fontSize:11,color:"#aaa",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}}>← Back</button>
               </div>
               {scanResults.map((r,i)=>(
-                <div key={i} style={{padding:"10px 12px",borderRadius:8,marginBottom:8,border:`1.5px solid ${selected[i]?"#ec4899":"#e5e5e5"}`,background:selected[i]?"#fff7fb":"#fff",transition:"all 0.15s"}}>
+                <div key={i} style={{padding:"10px 12px",borderRadius:8,marginBottom:8,border:`1.5px solid ${selected[i]?"#ec4899":"#e5e5e5"}`,background:selected[i]?"#fff7fb":"#fff"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                     <div style={{flex:1,cursor:"pointer"}} onClick={()=>setSelected(s=>({...s,[i]:!s[i]}))}>
-                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4,flexWrap:"wrap"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4,flexWrap:"wrap"}}>
                         <span style={{fontWeight:700,fontSize:13}}>{r.route}</span>
                         <span style={{fontSize:10,padding:"1px 7px",borderRadius:20,background:r.cabin==="Business"||r.cabin==="First"?"#fef3c7":"#f0f0f0",color:r.cabin==="Business"||r.cabin==="First"?"#92400e":"#666",fontWeight:600}}>{r.cabin}</span>
                         {r.isRoundTrip&&<span style={{fontSize:10,padding:"1px 7px",borderRadius:20,background:"#eff6ff",color:"#2563eb"}}>round trip</span>}
                       </div>
                       <div style={{fontSize:11,color:"#666",marginBottom:4}}>{r.airline}</div>
                       <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:4}}>
-                        {r.cashPriceTotal&&(
-                          <div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:6,padding:"4px 10px"}}>
-                            <span style={{fontSize:12,fontWeight:700,color:"#16a34a"}}>{Number(r.cashPriceTotal).toLocaleString()} {r.cashCurrency}</span>
-                            {r.cashPricePP&&<span style={{fontSize:11,color:"#16a34a"}}> · {Number(r.cashPricePP).toLocaleString()}/pp</span>}
-                            <span style={{fontSize:10,color:"#888",marginLeft:4}}>cash</span>
-                          </div>
-                        )}
-                        {r.milesPrice&&(
-                          <div style={{background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:6,padding:"4px 10px",display:"flex",alignItems:"center",gap:6}}>
-                            <span style={{fontSize:12,fontWeight:700,color:"#2563eb"}}>{Number(r.milesPrice).toLocaleString()} mi</span>
-                            {r.milesTaxTotal&&(
-                              <>
-                                <span style={{color:"#93c5fd",fontSize:12}}>+</span>
-                                <span style={{fontSize:12,fontWeight:700,color:"#0369a1"}}>{Number(r.milesTaxTotal).toLocaleString()} {r.milesTaxCurrency||"AED"}</span>
-                                <span style={{fontSize:10,color:"#888"}}>taxes</span>
-                              </>
-                            )}
-                            {r.milesProgram&&<span style={{fontSize:10,color:"#888"}}>· {r.milesProgram}</span>}
-                          </div>
-                        )}
+                        {r.cashPriceTotal&&<div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:6,padding:"3px 8px"}}>
+                          <span style={{fontSize:12,fontWeight:700,color:"#16a34a"}}>{Number(r.cashPriceTotal).toLocaleString()} {r.cashCurrency}</span>
+                          {r.cashPricePP&&<span style={{fontSize:11,color:"#16a34a"}}> · {Number(r.cashPricePP).toLocaleString()}/pp</span>}
+                        </div>}
+                        {r.milesPrice&&<div style={{background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:6,padding:"3px 8px",display:"flex",alignItems:"center",gap:4}}>
+                          <span style={{fontSize:12,fontWeight:700,color:"#2563eb"}}>{Number(r.milesPrice).toLocaleString()} mi</span>
+                          {r.milesTaxTotal&&<><span style={{color:"#93c5fd"}}>+</span><span style={{fontSize:12,fontWeight:700,color:"#0369a1"}}>{Number(r.milesTaxTotal).toLocaleString()} {r.milesTaxCurrency||"AED"}</span><span style={{fontSize:10,color:"#888"}}>taxes</span></>}
+                          {r.milesProgram&&<span style={{fontSize:10,color:"#888"}}>· {r.milesProgram}</span>}
+                        </div>}
                       </div>
                       {(r.outboundDate||r.returnDate)&&<div style={{fontSize:10,color:"#888",marginBottom:4}}>✈ {r.outboundDate||""}{r.returnDate?` → ${r.returnDate}`:""} · {r.pax} pax</div>}
                     </div>
@@ -460,28 +371,20 @@ function FlightTracker({flights=[],onChange}){
                       {selected[i]&&<span style={{color:"#fff",fontSize:12,fontWeight:700}}>✓</span>}
                     </div>
                   </div>
-                  {/* Editable notes */}
-                  <textarea
-                    value={r.notes||""}
-                    onChange={e=>{const updated=[...scanResults];updated[i]={...updated[i],notes:e.target.value};setScanResults(updated);}}
-                    onClick={e=>e.stopPropagation()}
-                    placeholder="Add notes…"
-                    rows={2}
-                    style={{width:"100%",fontSize:10,color:"#666",fontStyle:"italic",background:"transparent",border:"1px solid #e5e5e5",borderRadius:5,padding:"4px 6px",resize:"vertical",marginTop:4,boxSizing:"border-box"}}
-                  />
+                  <textarea value={r.notes||""} onChange={e=>{const u=[...scanResults];u[i]={...u[i],notes:e.target.value};setScanResults(u);}} onClick={e=>e.stopPropagation()} placeholder="Add notes…" rows={2}
+                    style={{width:"100%",fontSize:10,color:"#666",fontStyle:"italic",background:"transparent",border:"1px solid #e5e5e5",borderRadius:5,padding:"4px 6px",resize:"vertical",marginTop:4,boxSizing:"border-box"}}/>
                 </div>
               ))}
               <div style={{display:"flex",gap:8,marginTop:4}}>
                 <button onClick={()=>{const s={};scanResults.forEach((_,i)=>{s[i]=true;});setSelected(s);}} style={{flex:1,padding:"7px",borderRadius:8,border:"1px solid #ddd",background:"#fff",color:"#666",fontSize:12,cursor:"pointer"}}>Select all</button>
                 <button onClick={saveSelected} disabled={!Object.values(selected).some(Boolean)}
-                  style={{flex:2,padding:"9px",borderRadius:8,border:"none",background:Object.values(selected).some(Boolean)?"#ec4899":"#e5e5e5",color:"#fff",fontWeight:700,fontSize:13,cursor:Object.values(selected).some(Boolean)?"pointer":"default"}}>
+                  style={{flex:2,padding:"9px",borderRadius:8,border:"none",background:Object.values(selected).some(Boolean)?"#ec4899":"#e5e5e5",color:"#fff",fontWeight:700,fontSize:13,cursor:"pointer"}}>
                   Save {Object.values(selected).filter(Boolean).length} selected
                 </button>
               </div>
             </>
           )}
 
-          {/* ── MANUAL MODE ── */}
           {mode==="manual"&&(
             <>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
@@ -518,7 +421,7 @@ function FlightTracker({flights=[],onChange}){
                   </div>
                 </div>
               </div>
-              <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:8,marginBottom:8}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:8}}>
                 <div><label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>Miles</label>
                   <input type="number" className="text-input" value={form.milesPrice} onChange={e=>setForm(f=>({...f,milesPrice:e.target.value}))} placeholder="295708" style={{fontSize:13,padding:"7px 9px"}}/></div>
                 <div><label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>+ Taxes</label>
@@ -528,13 +431,11 @@ function FlightTracker({flights=[],onChange}){
                     {CURRENCIES.map(c=><option key={c}>{c}</option>)}
                   </select></div>
               </div>
-              <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:8,marginBottom:8}}>
-                <div><label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>Miles program</label>
-                  <select className="select-input" value={form.milesProgram} onChange={e=>setForm(f=>({...f,milesProgram:e.target.value}))} style={{fontSize:13,padding:"7px 9px"}}>
-                    {MILES_PROGRAMS.map(p=><option key={p}>{p}</option>)}
-                  </select></div>
-                <div><label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>Miles/pax</label>
-                  <input type="number" className="text-input" value={form.milesPrice&&form.pax?String(Math.round(+form.milesPrice/form.pax)):""} readOnly placeholder="auto" style={{fontSize:13,padding:"7px 9px",background:"#f0f0f0",color:"#888"}}/></div>
+              <div style={{marginBottom:8}}>
+                <label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>Miles program</label>
+                <select className="select-input" value={form.milesProgram} onChange={e=>setForm(f=>({...f,milesProgram:e.target.value}))} style={{fontSize:13,padding:"7px 9px"}}>
+                  {MILES_PROGRAMS.map(p=><option key={p}>{p}</option>)}
+                </select>
               </div>
               <div style={{marginBottom:10}}>
                 <label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>Notes</label>
@@ -549,15 +450,13 @@ function FlightTracker({flights=[],onChange}){
         </div>
       )}
 
-      {flights.length===0&&!adding&&<div style={{fontSize:12,color:"#aaa",textAlign:"center",padding:"12px 0"}}>No flight options yet — tap "+ Add option" to start tracking</div>}
+      {flights.length===0&&!adding&&<div style={{fontSize:12,color:"#aaa",textAlign:"center",padding:"12px 0"}}>No flight options yet — tap "+ Add option"</div>}
 
       {[...flights].reverse().map(f=>(
         <div key={f.id} className="flight-card">
-          {f.screenshots?.length>0&&(
-            <div style={{display:"flex",gap:4,marginBottom:8,flexWrap:"wrap"}}>
-              {f.screenshots.map((src,i)=><img key={i} src={src} style={{width:48,height:48,objectFit:"cover",borderRadius:5,border:"1px solid #e5e5e5"}} alt=""/>)}
-            </div>
-          )}
+          {f.screenshots?.length>0&&<div style={{display:"flex",gap:4,marginBottom:8,flexWrap:"wrap"}}>
+            {f.screenshots.map((src,i)=><img key={i} src={src} style={{width:48,height:48,objectFit:"cover",borderRadius:5,border:"1px solid #e5e5e5"}} alt=""/>)}
+          </div>}
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:5}}>
             <div style={{flex:1}}>
               <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:2}}>
@@ -569,30 +468,9 @@ function FlightTracker({flights=[],onChange}){
             </div>
             <button onClick={()=>deleteEntry(f.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#ccc",fontSize:16,lineHeight:1,marginLeft:8}}>×</button>
           </div>
-          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:5}}>
-            {(f.cashPriceTotal||f.cashPricePP)&&(
-              <div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:6,padding:"4px 10px"}}>
-                {f.cashPriceTotal&&<span style={{fontSize:11,color:"#16a34a",fontWeight:700}}>{Number(f.cashPriceTotal).toLocaleString()} {f.cashCurrency}</span>}
-                {f.cashPricePP&&<span style={{fontSize:11,color:"#16a34a"}}> · {Number(f.cashPricePP).toLocaleString()}/pp</span>}
-                <span style={{fontSize:10,color:"#888",marginLeft:4}}>cash</span>
-              </div>
-            )}
-            {f.milesPrice&&(
-              <div style={{background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:6,padding:"4px 10px",display:"flex",alignItems:"center",gap:6}}>
-                <span style={{fontSize:11,color:"#2563eb",fontWeight:700}}>{Number(f.milesPrice).toLocaleString()} mi</span>
-                {f.milesTaxTotal&&(
-                  <>
-                    <span style={{color:"#93c5fd",fontSize:11}}>+</span>
-                    <span style={{fontSize:11,fontWeight:700,color:"#0369a1"}}>{Number(f.milesTaxTotal).toLocaleString()} {f.milesTaxCurrency||"AED"}</span>
-                    <span style={{fontSize:10,color:"#888"}}>taxes</span>
-                  </>
-                )}
-                {f.milesProgram&&<span style={{fontSize:10,color:"#888"}}>· {f.milesProgram}</span>}
-              </div>
-            )}
-          </div>
+          <PriceTag f={f}/>
           {(f.outboundDate||f.returnDate)&&<div style={{fontSize:11,color:"#888",marginBottom:3}}>✈ {f.outboundDate||""}{f.returnDate?` → ${f.returnDate}`:""} · {f.pax||2} pax</div>}
-          {f.notes&&<div style={{fontSize:11,color:"#666",fontStyle:"italic",marginBottom:3}}>"{f.notes}"</div>}
+          {f.notes&&<div style={{fontSize:11,color:"#666",fontStyle:"italic",marginBottom:3,whiteSpace:"pre-wrap"}}>"{f.notes}"</div>}
           <div style={{fontSize:10,color:"#bbb"}}>Recorded {fmtTs(f.recordedAt)}</div>
         </div>
       ))}
@@ -600,15 +478,10 @@ function FlightTracker({flights=[],onChange}){
   );
 }
 
-// ── Main App ─────────────────────────────────────────────────
+// ── Main App ──────────────────────────────────────────────────
 function App(){
   const [unlocked,setUnlocked]=useState(!!sessionStorage.getItem(PIN_KEY));
-
-  useEffect(()=>{
-    if(unlocked&&window._fbAuth&&!window._fbAuth.currentUser)
-      window._fbSignInAnonymously(window._fbAuth).catch(console.error);
-  },[unlocked]);
-
+  useEffect(()=>{if(unlocked&&window._fbAuth&&!window._fbAuth.currentUser)window._fbSignInAnonymously(window._fbAuth).catch(console.error);},[unlocked]);
   if(!unlocked)return<PinScreen onUnlock={()=>setUnlocked(true)}/>;
   return<Planner/>;
 }
@@ -622,14 +495,17 @@ function Planner(){
   const [pickerPerson,setPickerPerson]=useState("salma");
   const [whatIf,setWhatIf]=useState({month:"2026-07",days:5,who:"both"});
   const [activeTab,setActiveTab]=useState("details");
+  const [tripCreateMode,setTripCreateMode]=useState(null); // null | "screenshot" | "manual"
+  const [tripScanning,setTripScanning]=useState(false);
+  const [tripScanError,setTripScanError]=useState("");
+  const tripFileRef=useRef();
   const skipSave=useRef(false);
 
   useEffect(()=>{
     function init(){
       const r=window._fbRef(window._fbDb,"planner");
       window._fbOnValue(r,snap=>{
-        const val=snap.val();
-        skipSave.current=true;
+        const val=snap.val();skipSave.current=true;
         const s=val||DEFAULT;
         s.trips=(s.trips||[]).map(t=>({flights:[],...t}));
         s.scenarios=(s.scenarios||[]).map(t=>({flights:[],...t}));
@@ -643,8 +519,7 @@ function Planner(){
 
   useEffect(()=>{
     if(!state||skipSave.current)return;
-    // strip screenshot data before saving to Firebase (too large)
-    const strip=trips=>trips.map(t=>({...t,flights:(t.flights||[]).map(f=>({...f,screenshot:null}))}));
+    const strip=trips=>trips.map(t=>({...t,flights:(t.flights||[]).map(f=>({...f,screenshots:[]}))}));
     const s={...state,trips:strip(state.trips),scenarios:strip(state.scenarios)};
     window._fbSet(window._fbRef(window._fbDb,"planner"),s).catch(console.error);
   },[state]);
@@ -661,69 +536,32 @@ function Planner(){
 
   function openNew(){
     setEditTrip({id:Date.now(),name:"",who:"both",start:"",end:"",status:"planned",color:"#ec4899",ptoDays:null,flights:[],isNew:true});
-    setPickerPerson("salma");setActiveTab("details");setTripScanMode(false);setSheet("trip");
+    setPickerPerson("salma");setActiveTab("details");setTripCreateMode(null);setTripScanError("");setSheet("trip");
   }
+  function openEdit(t){setEditTrip({flights:[],...t});setPickerPerson(t.who==="adis"?"adis":"salma");setActiveTab("details");setTripCreateMode("manual");setSheet("trip");}
 
-  const [tripScanMode, setTripScanMode] = useState(false);
-  const [tripScanning, setTripScanning] = useState(false);
-  const [tripScanError, setTripScanError] = useState("");
-  const tripFileRef = useRef();  function openEdit(t){setEditTrip({flights:[],...t});setPickerPerson(t.who==="adis"?"adis":"salma");setActiveTab("details");setSheet("trip");}
-
-  async function handleTripScreenshot(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    tripFileRef.current.value = "";
-    setTripScanning(true); setTripScanError("");
-    setTimeout(async () => {
-      try {
-        const dataUrl = await new Promise((res, rej) => {
-          const r = new FileReader(); r.onload = ev => res(ev.target.result); r.onerror = rej; r.readAsDataURL(file);
-        });
-        const base64 = dataUrl.split(",")[1];
-        const results = await scanFlightScreenshots([{base64Image: base64, mediaType: file.type}]);
-        if (results && results.length > 0) {
-          const r = results[0];
-          // derive destination name from route
-          const dest = r.route ? r.route.split(/->|→/).pop().trim() : "";
-          const pax = r.pax || 2;
-          const total = r.cashPriceTotal ? String(r.cashPriceTotal) : "";
-          const flight = {
-            ...emptyFlight(),
-            id: Date.now(),
-            route: r.route || "",
-            airline: r.airline || "",
-            outboundDate: r.outboundDate || "",
-            returnDate: r.returnDate || "",
-            cabin: CABINS.includes(r.cabin) ? r.cabin : "Economy",
-            cashPriceTotal: total,
-            cashPricePP: total && pax ? String(Math.round(+total / pax)) : "",
-            cashCurrency: CURRENCIES.includes(r.cashCurrency) ? r.cashCurrency : "AED",
-            milesPrice: r.milesPrice ? String(r.milesPrice) : "",
-            milesTaxTotal: r.milesTaxTotal ? String(r.milesTaxTotal) : "",
-            milesTaxCurrency: r.milesTaxCurrency || "AED",
-            milesProgram: r.milesProgram || "Etihad Guest",
-            pax,
-            isRoundTrip: r.isRoundTrip ?? true,
-            notes: r.notes || "",
-            recordedAt: nowTs(),
-            screenshots: [dataUrl]
-          };
-          setEditTrip(t => ({
-            ...t,
-            name: dest || t.name,
-            start: r.outboundDate || t.start,
-            end: r.returnDate || r.outboundDate || t.end,
-            flights: [flight]
-          }));
-          setTripScanMode(false);
-          setActiveTab("details");
-        } else {
-          setTripScanError("Couldn't read screenshot — please fill in manually.");
-        }
-      } catch { setTripScanError("Failed to process screenshot."); }
+  async function handleTripScreenshot(e){
+    const file=e.target.files[0];if(!file)return;tripFileRef.current.value="";
+    setTripScanning(true);setTripScanError("");
+    setTimeout(async()=>{
+      try{
+        const dataUrl=await new Promise((res,rej)=>{const r=new FileReader();r.onload=ev=>res(ev.target.result);r.onerror=rej;r.readAsDataURL(file);});
+        const results=await scanFlightScreenshots([{base64Image:dataUrl.split(",")[1],mediaType:file.type}]);
+        if(results&&results.length>0){
+          const r=results[0];
+          const dest=r.route?r.route.split(/->|→/).pop().trim():"";
+          const pax=r.pax||2;
+          const total=r.cashPriceTotal?String(r.cashPriceTotal):"";
+          const flight={...emptyFlight(),id:Date.now(),route:r.route||"",airline:r.airline||"",outboundDate:r.outboundDate||"",returnDate:r.returnDate||"",cabin:CABINS.includes(r.cabin)?r.cabin:"Economy",cashPriceTotal:total,cashPricePP:total&&pax?String(Math.round(+total/pax)):"",cashCurrency:CURRENCIES.includes(r.cashCurrency)?r.cashCurrency:"AED",milesPrice:r.milesPrice?String(r.milesPrice):"",milesTaxTotal:r.milesTaxTotal?String(r.milesTaxTotal):"",milesTaxCurrency:r.milesTaxCurrency||"AED",milesProgram:r.milesProgram||"Etihad Guest",pax,isRoundTrip:r.isRoundTrip??true,notes:r.notes||"",recordedAt:nowTs(),screenshots:[dataUrl]};
+          setEditTrip(t=>({...t,name:dest||t.name,start:r.outboundDate||t.start,end:r.returnDate||r.outboundDate||t.end,flights:[flight]}));
+          setTripCreateMode("manual");setActiveTab("details");
+        }else{setTripScanError("Couldn't read screenshot — please fill manually.");}
+      }catch{setTripScanError("Failed to process screenshot.");}
       setTripScanning(false);
-    }, 50);
+    },50);
   }
+
+  function saveTrip(trip){
     const{isNew,...t}=trip;const isScen=t.status==="planned";
     const others=[...state.trips,...state.scenarios].filter(x=>x.id!==t.id);
     save({...state,trips:[...others.filter(x=>x.status==="committed"),...(isScen?[]:[t])],scenarios:[...others.filter(x=>x.status==="planned"),...(isScen?[t]:[])]});
@@ -742,6 +580,7 @@ function Planner(){
 
   return(
     <div style={{maxWidth:520,margin:"0 auto",padding:"14px 12px 100px"}}>
+      {/* Header */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
         <div>
           <h2 style={{fontSize:17,fontWeight:700,marginBottom:2}}>🗓 Holiday Planner</h2>
@@ -751,12 +590,11 @@ function Planner(){
           </div>
         </div>
         <div style={{display:"flex",gap:5}}>
-          {[2026,2027].map(y=>(
-            <button key={y} onClick={()=>setYear(y)} style={{padding:"4px 10px",borderRadius:20,border:"1px solid #ddd",background:year===y?"#1a1a1a":"#fff",color:year===y?"#fff":"#1a1a1a",cursor:"pointer",fontSize:12,fontWeight:700}}>{y}</button>
-          ))}
+          {[2026,2027].map(y=>(<button key={y} onClick={()=>setYear(y)} style={{padding:"4px 10px",borderRadius:20,border:"1px solid #ddd",background:year===y?"#1a1a1a":"#fff",color:year===y?"#fff":"#1a1a1a",cursor:"pointer",fontSize:12,fontWeight:700}}>{y}</button>))}
         </div>
       </div>
 
+      {/* Balances */}
       <div className="balance-grid">
         {[{name:"Salma",left:sLeft,used:sUsed,planned:sPlanned,total:state.salma.total,key:"salma"},{name:"Adis",left:aLeft,used:aUsed,planned:aPlanned,total:state.adis.total,key:"adis"}].map(p=>(
           <div key={p.key} className="balance-card">
@@ -775,14 +613,14 @@ function Planner(){
         ))}
       </div>
 
+      {/* Legend */}
       <div style={{display:"flex",gap:10,marginBottom:10,flexWrap:"wrap",fontSize:10,color:"#888"}}>
         {[["#ec4899",2,"Committed"],["#f59e0b",2,"Planned"],["#10b981",8,"Hessen PH"],["#3b82f6",8,"Abu Dhabi PH"]].map(([c,r,l])=>(
-          <span key={l} style={{display:"flex",alignItems:"center",gap:3}}>
-            <span style={{width:9,height:9,borderRadius:r,background:c,display:"inline-block",flexShrink:0}}/>{l}
-          </span>
+          <span key={l} style={{display:"flex",alignItems:"center",gap:3}}><span style={{width:9,height:9,borderRadius:r,background:c,display:"inline-block",flexShrink:0}}/>{l}</span>
         ))}
       </div>
 
+      {/* Calendar */}
       <div className="cal-grid">
         {Array.from({length:12},(_,i)=>({y:year,m:i})).map(({y,m})=>{
           const trips=tripsForMonth(y,m);
@@ -803,60 +641,76 @@ function Planner(){
                   const isToday=today.getFullYear()===y&&today.getMonth()===m&&today.getDate()===day;
                   const col=i%7;const isWE=col===5||col===6;
                   let bg="transparent",fg=isWE?"#ccc":"#555",brd="none";
-                  if(isH){bg="#10b981";fg="#fff";}
-                  if(isA){bg="#3b82f6";fg="#fff";}
+                  if(isH){bg="#10b981";fg="#fff";}if(isA){bg="#3b82f6";fg="#fff";}
                   if(ton.length){bg=ton[0].status==="committed"?ton[0].color:"#f59e0b";fg="#fff";}
                   if(isToday)brd="1.5px solid #1a1a1a";
                   const tip=[...ton.map(t=>t.name),...(PH_NAMES[ds]?[PH_NAMES[ds]]:[])];
                   return(
-                    <div key={i} className="day-cell" title={tip.join(" · ")}
-                      onClick={ton.length?()=>openEdit(ton[0]):null}
+                    <div key={i} className="day-cell" title={tip.join(" · ")} onClick={ton.length?()=>openEdit(ton[0]):null}
                       style={{background:bg,color:fg,border:brd,cursor:ton.length?"pointer":"default",fontWeight:isToday?700:400}}>
                       {day}
                     </div>
                   );
                 })}
               </div>
-              {trips.length>0&&(
-                <div style={{marginTop:4,display:"flex",flexDirection:"column",gap:2}}>
-                  {trips.map(t=>(
-                    <div key={t.id} onClick={()=>openEdit(t)} style={{fontSize:8,padding:"2px 4px",borderRadius:3,background:t.color+"18",color:t.color,cursor:"pointer",border:`1px solid ${t.color}33`,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                      {t.who==="both"?"👫":t.who==="salma"?"S":"A"} {t.name}
-                      {t.flights?.length>0&&<span style={{marginLeft:4}}>✈{t.flights.length}</span>}
-                    </div>
-                  ))}
-                </div>
-              )}
+              {trips.length>0&&<div style={{marginTop:4,display:"flex",flexDirection:"column",gap:2}}>
+                {trips.map(t=>(
+                  <div key={t.id} onClick={()=>openEdit(t)} style={{fontSize:8,padding:"2px 4px",borderRadius:3,background:t.color+"18",color:t.color,cursor:"pointer",border:`1px solid ${t.color}33`,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                    {t.who==="both"?"👫":t.who==="salma"?"S":"A"} {t.name}{t.flights?.length>0&&<span style={{marginLeft:4}}>✈{t.flights.length}</span>}
+                  </div>
+                ))}
+              </div>}
             </div>
           );
         })}
       </div>
 
+      {/* FABs */}
       <div className="fab-wrap">
         <button className="fab" onClick={()=>setSheet(s=>s==="whatif"?null:"whatif")} style={{width:46,height:46,borderRadius:23,background:"#f59e0b",color:"#fff",fontSize:18,fontWeight:700}}>?</button>
         <button className="fab" onClick={openNew} style={{width:56,height:56,borderRadius:28,background:"#ec4899",color:"#fff",fontSize:26}}>+</button>
       </div>
 
-      <BottomSheet open={sheet==="trip"} onClose={()=>{setSheet(null);setTripScanMode(false);setTripScanError("");}} title={editTrip?.isNew?"New trip":editTrip?.name||"Edit trip"}>
+      {/* Trip sheet */}
+      <BottomSheet open={sheet==="trip"} onClose={()=>{setSheet(null);setTripCreateMode(null);setTripScanError("");}} title={editTrip?.isNew?"New trip":editTrip?.name||"Edit trip"}>
         {editTrip&&(
           <>
-            {/* New trip — choose mode */}
-            {editTrip.isNew&&tripScanMode&&(
-              <div style={{marginBottom:16}}>
+            {/* Mode picker — only for new trips */}
+            {editTrip.isNew&&tripCreateMode===null&&(
+              <div>
+                <p style={{fontSize:13,color:"#888",marginBottom:14,textAlign:"center"}}>How would you like to add this trip?</p>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:0}}>
+                  <div className="mode-card" onClick={()=>setTripCreateMode("screenshot")}>
+                    <div style={{fontSize:28,marginBottom:8}}>📸</div>
+                    <div style={{fontSize:13,fontWeight:700,color:"#1a1a1a",marginBottom:4}}>From screenshot</div>
+                    <div style={{fontSize:11,color:"#888"}}>Upload a flight search screenshot — Claude fills dates, destination & first price entry</div>
+                  </div>
+                  <div className="mode-card" onClick={()=>setTripCreateMode("manual")}>
+                    <div style={{fontSize:28,marginBottom:8}}>✏️</div>
+                    <div style={{fontSize:13,fontWeight:700,color:"#1a1a1a",marginBottom:4}}>Manual entry</div>
+                    <div style={{fontSize:11,color:"#888"}}>Fill in trip name, dates and details yourself</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Screenshot upload for new trip */}
+            {editTrip.isNew&&tripCreateMode==="screenshot"&&(
+              <div>
                 <input type="file" accept="image/*" ref={tripFileRef} style={{display:"none"}} onChange={handleTripScreenshot}/>
                 {tripScanning?(
-                  <div style={{textAlign:"center",padding:"24px 0",color:"#f59e0b"}}>
-                    <span className="spinner"/><span style={{fontSize:13,marginLeft:8}}>Reading screenshot…</span>
+                  <div style={{textAlign:"center",padding:"32px 0",color:"#f59e0b"}}>
+                    <span className="spinner"/><span style={{fontSize:14,marginLeft:8}}>Reading screenshot…</span>
                   </div>
                 ):(
                   <>
-                    <div className="upload-zone" onClick={()=>tripFileRef.current.click()} style={{padding:20,marginBottom:10}}>
-                      <div style={{fontSize:28,marginBottom:8}}>📸</div>
-                      <div style={{fontSize:14,fontWeight:700,color:"#1a1a1a",marginBottom:4}}>Upload a flight screenshot</div>
-                      <div style={{fontSize:12,color:"#888"}}>Claude will fill in the destination, dates and first flight entry automatically</div>
+                    <div className="upload-zone" onClick={()=>tripFileRef.current.click()} style={{padding:24,marginBottom:12}}>
+                      <div style={{fontSize:32,marginBottom:8}}>📸</div>
+                      <div style={{fontSize:14,fontWeight:700,color:"#1a1a1a",marginBottom:4}}>Upload flight screenshot</div>
+                      <div style={{fontSize:12,color:"#888"}}>Claude will fill in destination, dates and add the first flight entry automatically</div>
                     </div>
-                    {tripScanError&&<div style={{color:"#ef4444",fontSize:12,marginBottom:8,textAlign:"center"}}>{tripScanError}</div>}
-                    <button onClick={()=>{setTripScanMode(false);setTripScanError("");}} style={{width:"100%",padding:"9px",borderRadius:8,border:"1px solid #ddd",background:"transparent",color:"#888",fontSize:13,cursor:"pointer"}}>
+                    {tripScanError&&<div style={{color:"#ef4444",fontSize:12,marginBottom:10,textAlign:"center"}}>{tripScanError}</div>}
+                    <button onClick={()=>setTripCreateMode("manual")} style={{width:"100%",padding:"9px",borderRadius:8,border:"1px solid #ddd",background:"transparent",color:"#888",fontSize:13,cursor:"pointer"}}>
                       ✏️ Fill in manually instead
                     </button>
                   </>
@@ -864,92 +718,74 @@ function Planner(){
               </div>
             )}
 
-            {/* Mode picker for new trips */}
-            {editTrip.isNew&&!tripScanMode&&(
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:16}}>
-                <button onClick={()=>{setTripScanMode(true);setTripScanError("");}}
-                  style={{padding:"12px 8px",borderRadius:10,border:"1px solid #e5e5e5",background:"#fafafa",cursor:"pointer",textAlign:"center"}}>
-                  <div style={{fontSize:22,marginBottom:4}}>📸</div>
-                  <div style={{fontSize:13,fontWeight:700,color:"#1a1a1a",marginBottom:2}}>From screenshot</div>
-                  <div style={{fontSize:11,color:"#888"}}>Auto-fill from flight search</div>
-                </button>
-                <button onClick={()=>setTripScanMode(false)}
-                  style={{padding:"12px 8px",borderRadius:10,border:"1px solid #e5e5e5",background:"#fafafa",cursor:"pointer",textAlign:"center"}}>
-                  <div style={{fontSize:22,marginBottom:4}}>✏️</div>
-                  <div style={{fontSize:13,fontWeight:700,color:"#1a1a1a",marginBottom:2}}>Manual entry</div>
-                  <div style={{fontSize:11,color:"#888"}}>Fill in dates and details</div>
-                </button>
-              </div>
-            )}
-
-            {/* Hide main form while in scan upload mode */}
-            {(!editTrip.isNew||!tripScanMode)&&(
+            {/* Trip form */}
+            {(!editTrip.isNew||tripCreateMode==="manual")&&(
               <>
-
-            <div style={{display:"flex",gap:0,marginBottom:16,borderBottom:"1px solid #e5e5e5"}}>
-              {[["details","Details"],["flights",`Flights${editTrip.flights?.length>0?` (${editTrip.flights.length})`:""}`]].map(([t,l])=>(
-                <button key={t} onClick={()=>setActiveTab(t)}
-                  style={{flex:1,padding:"8px 4px",border:"none",background:"transparent",color:activeTab===t?"#ec4899":"#aaa",fontWeight:activeTab===t?700:400,fontSize:13,cursor:"pointer",borderBottom:activeTab===t?"2px solid #ec4899":"2px solid transparent",marginBottom:-1}}>
-                  {l}
-                </button>
-              ))}
-            </div>
-
-            {activeTab==="details"&&(
-              <>
-                <div className="field"><label>Trip name</label>
-                  <input className="text-input" value={editTrip.name} onChange={e=>setEditTrip(t=>({...t,name:e.target.value}))} placeholder="e.g. Japan, Euro Summer…"/></div>
-                <div className="field"><label>Who's going?</label>
-                  <ToggleGroup options={[["both","👫 Both"],["salma","Salma"],["adis","Adis"]]} value={editTrip.who}
-                    onChange={v=>{setEditTrip(t=>({...t,who:v,ptoDays:null}));setPickerPerson(v==="adis"?"adis":"salma");}}/></div>
-                <div className="field"><label>Status</label>
-                  <ToggleGroup options={[["committed","✓ Committed"],["planned","~ Planned"]]} value={editTrip.status}
-                    onChange={v=>setEditTrip(t=>({...t,status:v}))} accent={editTrip.status==="committed"?"#ec4899":"#f59e0b"}/></div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
-                  <div className="field" style={{marginBottom:0}}><label>Start</label>
-                    <input type="date" className="date-input" value={editTrip.start} onChange={e=>setEditTrip(t=>({...t,start:e.target.value,ptoDays:null}))}/></div>
-                  <div className="field" style={{marginBottom:0}}><label>End</label>
-                    <input type="date" className="date-input" value={editTrip.end} onChange={e=>setEditTrip(t=>({...t,end:e.target.value,ptoDays:null}))}/></div>
+                <div style={{display:"flex",gap:0,marginBottom:16,borderBottom:"1px solid #e5e5e5"}}>
+                  {[["details","Details"],["flights",`Flights${editTrip.flights?.length>0?` (${editTrip.flights.length})`:""}`]].map(([t,l])=>(
+                    <button key={t} onClick={()=>setActiveTab(t)}
+                      style={{flex:1,padding:"8px 4px",border:"none",background:"transparent",color:activeTab===t?"#ec4899":"#aaa",fontWeight:activeTab===t?700:400,fontSize:13,cursor:"pointer",borderBottom:activeTab===t?"2px solid #ec4899":"2px solid transparent",marginBottom:-1}}>
+                      {l}
+                    </button>
+                  ))}
                 </div>
-                {editTrip.start&&editTrip.end&&editTrip.start<=editTrip.end&&(
-                  <div className="field"><label>PTO vs Remote days</label>
-                    <div style={{background:"#fafafa",borderRadius:8,padding:10,border:"1px solid #e5e5e5"}}>
-                      {pickerPeople.length>1&&(
-                        <div style={{display:"flex",gap:6,marginBottom:10}}>
-                          {pickerPeople.map(p=>(
-                            <button key={p} onClick={()=>setPickerPerson(p)} style={{padding:"4px 14px",borderRadius:20,border:`1px solid ${pickerPerson===p?"#ec4899":"#ddd"}`,background:pickerPerson===p?"#fce7f3":"#fff",color:pickerPerson===p?"#be185d":"#888",cursor:"pointer",fontSize:12,fontWeight:pickerPerson===p?700:400,textTransform:"capitalize"}}>
-                              {p}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                      <DayPicker trip={editTrip} person={pickerPerson} onChange={setEditTrip}/>
+
+                {activeTab==="details"&&(
+                  <>
+                    <div className="field"><label>Trip name</label>
+                      <input className="text-input" value={editTrip.name} onChange={e=>setEditTrip(t=>({...t,name:e.target.value}))} placeholder="e.g. Bali, Japan, Euro Summer…"/></div>
+                    <div className="field"><label>Who's going?</label>
+                      <ToggleGroup options={[["both","👫 Both"],["salma","Salma"],["adis","Adis"]]} value={editTrip.who}
+                        onChange={v=>{setEditTrip(t=>({...t,who:v,ptoDays:null}));setPickerPerson(v==="adis"?"adis":"salma");}}/></div>
+                    <div className="field"><label>Status</label>
+                      <ToggleGroup options={[["committed","✓ Committed"],["planned","~ Planned"]]} value={editTrip.status}
+                        onChange={v=>setEditTrip(t=>({...t,status:v}))} accent={editTrip.status==="committed"?"#ec4899":"#f59e0b"}/></div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+                      <div className="field" style={{marginBottom:0}}><label>Start</label>
+                        <input type="date" className="date-input" value={editTrip.start} onChange={e=>setEditTrip(t=>({...t,start:e.target.value,ptoDays:null}))}/></div>
+                      <div className="field" style={{marginBottom:0}}><label>End</label>
+                        <input type="date" className="date-input" value={editTrip.end} onChange={e=>setEditTrip(t=>({...t,end:e.target.value,ptoDays:null}))}/></div>
                     </div>
-                  </div>
+                    {editTrip.start&&editTrip.end&&editTrip.start<=editTrip.end&&(
+                      <div className="field"><label>PTO vs Remote days</label>
+                        <div style={{background:"#fafafa",borderRadius:8,padding:10,border:"1px solid #e5e5e5"}}>
+                          {pickerPeople.length>1&&(
+                            <div style={{display:"flex",gap:6,marginBottom:10}}>
+                              {pickerPeople.map(p=>(
+                                <button key={p} onClick={()=>setPickerPerson(p)} style={{padding:"4px 14px",borderRadius:20,border:`1px solid ${pickerPerson===p?"#ec4899":"#ddd"}`,background:pickerPerson===p?"#fce7f3":"#fff",color:pickerPerson===p?"#be185d":"#888",cursor:"pointer",fontSize:12,fontWeight:pickerPerson===p?700:400,textTransform:"capitalize"}}>
+                                  {p}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          <DayPicker trip={editTrip} person={pickerPerson} onChange={setEditTrip}/>
+                        </div>
+                      </div>
+                    )}
+                    <div className="field"><label>Color</label>
+                      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                        {COLORS.map(c=><div key={c} onClick={()=>setEditTrip(t=>({...t,color:c}))} style={{width:28,height:28,borderRadius:14,background:c,cursor:"pointer",border:editTrip.color===c?"3px solid #1a1a1a":"3px solid transparent"}}/>)}
+                      </div>
+                    </div>
+                    <button className="btn-primary" onClick={()=>saveTrip(editTrip)} disabled={!editTrip.name||!editTrip.start||!editTrip.end||editTrip.start>editTrip.end}
+                      style={{background:(editTrip.name&&editTrip.start&&editTrip.end&&editTrip.start<=editTrip.end)?"#ec4899":"#e5e5e5"}}>
+                      {editTrip.isNew?"Add trip":"Save changes"}
+                    </button>
+                    {!editTrip.isNew&&<button className="btn-danger" onClick={()=>deleteTrip(editTrip.id)}>Delete trip</button>}
+                  </>
                 )}
-                <div className="field"><label>Color</label>
-                  <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                    {COLORS.map(c=><div key={c} onClick={()=>setEditTrip(t=>({...t,color:c}))} style={{width:28,height:28,borderRadius:14,background:c,cursor:"pointer",border:editTrip.color===c?"3px solid #1a1a1a":"3px solid transparent"}}/>)}
-                  </div>
-                </div>
-                <button className="btn-primary" onClick={()=>saveTrip(editTrip)} disabled={!editTrip.name||!editTrip.start||!editTrip.end||editTrip.start>editTrip.end}
-                  style={{background:(editTrip.name&&editTrip.start&&editTrip.end&&editTrip.start<=editTrip.end)?"#ec4899":"#e5e5e5"}}>
-                  {editTrip.isNew?"Add trip":"Save changes"}
-                </button>
-                {!editTrip.isNew&&<button className="btn-danger" onClick={()=>deleteTrip(editTrip.id)}>Delete trip</button>}
-              </>
-            )}
 
-            {(!editTrip.isNew||!tripScanMode)&&activeTab==="flights"&&(
-              <FlightTracker flights={editTrip.flights||[]}
-                onChange={flights=>{setEditTrip(t=>({...t,flights}));if(!editTrip.isNew)updateFlights(editTrip.id,flights);}}/>
-            )}
+                {activeTab==="flights"&&(
+                  <FlightTracker flights={editTrip.flights||[]}
+                    onChange={flights=>{setEditTrip(t=>({...t,flights}));if(!editTrip.isNew)updateFlights(editTrip.id,flights);}}/>
+                )}
               </>
             )}
           </>
         )}
       </BottomSheet>
 
+      {/* What-if sheet */}
       <BottomSheet open={sheet==="whatif"} onClose={()=>setSheet(null)} title="What-if scenario">
         <div className="field"><label>Month</label>
           <select className="select-input" value={whatIf.month} onChange={e=>setWhatIf(w=>({...w,month:e.target.value}))}>
