@@ -30,7 +30,7 @@
 <style>
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
   body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f5f5f5;color:#1a1a1a;min-height:100vh;}
-  input,select,button{font-family:inherit;}
+  input,select,button,textarea{font-family:inherit;}
   .sheet-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:200;display:flex;flex-direction:column;justify-content:flex-end;}
   .sheet{background:#fff;border-radius:16px 16px 0 0;max-height:92vh;overflow-y:auto;box-shadow:0 -4px 32px rgba(0,0,0,0.12);}
   .sheet-header{display:flex;justify-content:space-between;align-items:center;padding:16px 18px 12px;border-bottom:1px solid #e5e5e5;position:sticky;top:0;background:#fff;z-index:1;}
@@ -57,9 +57,12 @@
   .balance-card{background:#fff;border:1px solid #e5e5e5;border-radius:12px;padding:12px;}
   .sync-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:2px 8px;border-radius:20px;}
   .flight-card{background:#f9fafb;border:1px solid #e5e5e5;border-radius:8px;padding:10px;margin-bottom:8px;}
-  .flight-card:last-child{margin-bottom:0;}
   .tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;}
-  .divider{height:1px;background:#e5e5e5;margin:16px 0;}
+  .upload-zone{border:2px dashed #e5e5e5;border-radius:10px;padding:20px;text-align:center;cursor:pointer;transition:border-color 0.2s;background:#fafafa;}
+  .upload-zone:hover{border-color:#ec4899;}
+  .upload-zone.scanning{border-color:#f59e0b;background:#fffbeb;}
+  .spinner{display:inline-block;width:16px;height:16px;border:2px solid #f59e0b;border-top-color:transparent;border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:6px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
 </style>
 </head>
 <body>
@@ -77,6 +80,7 @@ const CURRENCIES=["EUR","USD","AED","GBP","CHF"];
 const MILES_PROGRAMS=["Etihad Guest","Miles & More","Flying Blue","Avios","United MileagePlus","Emirates Skywards","Other"];
 const CORRECT_PIN="050393";
 const PIN_KEY="hp_auth_v2";
+const API_KEY_STORAGE="hp_anthropic_key";
 
 const DEFAULT={
   salma:{total:40},adis:{total:35},
@@ -108,7 +112,42 @@ function getDaysUsed(trips,who,sf){
 function nowTs(){return new Date().toISOString();}
 function fmtTs(ts){const d=new Date(ts);return `${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)} ${d.getFullYear()}, ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;}
 
-// ── PIN Screen ──────────────────────────────────────────────
+// ── Scan screenshot via Claude API ───────────────────────────
+async function scanFlightScreenshot(base64Image, mediaType, apiKey) {
+  const prompt = `You are analyzing a flight search screenshot. Extract flight information and return ONLY a JSON object with these fields (use null for anything not visible):
+{
+  "route": "origin → destination (e.g. AUH → NRT)",
+  "airline": "airline name and flight number if visible",
+  "flightDate": "YYYY-MM-DD format if visible, else null",
+  "cabin": "Economy|Premium Economy|Business|First",
+  "cashPrice": "numeric only, no currency symbol",
+  "cashCurrency": "3-letter currency code e.g. EUR, USD, AED",
+  "milesPrice": "numeric only if miles price shown, else null",
+  "milesProgram": "miles program name if shown, else null",
+  "notes": "any other relevant info like stops, duration, taxes included"
+}
+Return ONLY the JSON object, no explanation.`;
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method:"POST",
+    headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01"},
+    body:JSON.stringify({
+      model:"claude-opus-4-6",
+      max_tokens:500,
+      messages:[{role:"user",content:[
+        {type:"image",source:{type:"base64",media_type:mediaType,data:base64Image}},
+        {type:"text",text:prompt}
+      ]}]
+    })
+  });
+  if(!res.ok) throw new Error(`API error ${res.status}`);
+  const data=await res.json();
+  const text=data.content[0].text.trim();
+  const clean=text.replace(/```json|```/g,"").trim();
+  return JSON.parse(clean);
+}
+
+// ── PIN Screen ───────────────────────────────────────────────
 function PinScreen({onUnlock}){
   const [pin,setPin]=useState("");
   const [error,setError]=useState(false);
@@ -124,17 +163,55 @@ function PinScreen({onUnlock}){
     <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f5f5f5"}}>
       <div style={{background:"#fff",border:"1px solid #e5e5e5",borderRadius:16,padding:"32px 28px",width:300,textAlign:"center",boxShadow:"0 4px 24px rgba(0,0,0,0.08)"}}>
         <div style={{fontSize:32,marginBottom:12}}>🗓</div>
-        <h2 style={{fontSize:18,fontWeight:700,marginBottom:4,color:"#1a1a1a"}}>Holiday Planner</h2>
+        <h2 style={{fontSize:18,fontWeight:700,marginBottom:4}}>Holiday Planner</h2>
         <p style={{fontSize:13,color:"#888",marginBottom:24}}>Salma & Adis · Enter PIN to continue</p>
         <input type="password" inputMode="numeric" maxLength={6} value={pin}
           onChange={e=>{setPin(e.target.value);setError(false);}}
-          onKeyDown={e=>e.key==="Enter"&&submit()}
-          placeholder="······"
-          style={{width:"100%",padding:"12px",borderRadius:8,border:`1.5px solid ${error?"#ef4444":"#ddd"}`,background:"#fafafa",color:"#1a1a1a",fontSize:22,textAlign:"center",letterSpacing:6,marginBottom:8,boxSizing:"border-box"}}/>
+          onKeyDown={e=>e.key==="Enter"&&submit()} placeholder="······"
+          style={{width:"100%",padding:"12px",borderRadius:8,border:`1.5px solid ${error?"#ef4444":"#ddd"}`,background:"#fafafa",fontSize:22,textAlign:"center",letterSpacing:6,marginBottom:8,boxSizing:"border-box"}}/>
         {error&&<div style={{color:"#ef4444",fontSize:12,marginBottom:8}}>Incorrect PIN — try again</div>}
         <button onClick={submit} disabled={loading||pin.length<4}
           style={{width:"100%",padding:"11px",borderRadius:8,border:"none",background:pin.length>=4?"#ec4899":"#e5e5e5",color:"#fff",fontSize:14,fontWeight:700,cursor:pin.length>=4?"pointer":"default",marginTop:4}}>
           {loading?"Connecting…":"Unlock"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── API Key Setup Screen ──────────────────────────────────────
+function ApiKeyScreen({onSave}){
+  const [key,setKey]=useState("");
+  const [error,setError]=useState("");
+  const [testing,setTesting]=useState(false);
+  async function save(){
+    if(!key.startsWith("sk-ant-")){setError("Key should start with sk-ant-");return;}
+    setTesting(true);setError("");
+    try{
+      const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01"},body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:10,messages:[{role:"user",content:"hi"}]})});
+      if(!res.ok)throw new Error("Invalid key");
+      localStorage.setItem(API_KEY_STORAGE,key);
+      onSave(key);
+    }catch(e){setError("Could not verify key — please check it and try again.");}
+    setTesting(false);
+  }
+  return(
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f5f5f5"}}>
+      <div style={{background:"#fff",border:"1px solid #e5e5e5",borderRadius:16,padding:"32px 28px",width:340,boxShadow:"0 4px 24px rgba(0,0,0,0.08)"}}>
+        <div style={{fontSize:28,marginBottom:12,textAlign:"center"}}>✈️</div>
+        <h2 style={{fontSize:16,fontWeight:700,marginBottom:6,textAlign:"center"}}>Enable AI flight scanning</h2>
+        <p style={{fontSize:13,color:"#888",marginBottom:20,textAlign:"center"}}>Enter your Anthropic API key to scan flight screenshots automatically. It's stored only in your browser.</p>
+        <div style={{marginBottom:8}}>
+          <input className="text-input" type="password" value={key} onChange={e=>setKey(e.target.value)}
+            placeholder="sk-ant-api03-…" style={{fontSize:13}}/>
+        </div>
+        {error&&<div style={{color:"#ef4444",fontSize:12,marginBottom:8}}>{error}</div>}
+        <button onClick={save} disabled={testing||!key}
+          style={{width:"100%",padding:"10px",borderRadius:8,border:"none",background:key?"#ec4899":"#e5e5e5",color:"#fff",fontWeight:700,fontSize:13,cursor:key?"pointer":"default",marginBottom:10}}>
+          {testing?"Verifying…":"Save & continue"}
+        </button>
+        <button onClick={()=>onSave(null)} style={{width:"100%",padding:"8px",borderRadius:8,border:"1px solid #ddd",background:"transparent",color:"#aaa",fontSize:12,cursor:"pointer"}}>
+          Skip — I'll fill flights manually
         </button>
       </div>
     </div>
@@ -149,7 +226,7 @@ function BottomSheet({open,onClose,title,children}){
     <div className="sheet-overlay" onClick={onClose}>
       <div className="sheet" onClick={e=>e.stopPropagation()}>
         <div className="sheet-header">
-          <span style={{fontWeight:700,fontSize:15,color:"#1a1a1a"}}>{title}</span>
+          <span style={{fontWeight:700,fontSize:15}}>{title}</span>
           <button onClick={onClose} style={{background:"none",border:"none",fontSize:22,cursor:"pointer",color:"#aaa",lineHeight:1}}>×</button>
         </div>
         <div className="sheet-body">{children}</div>
@@ -207,34 +284,69 @@ function DayPicker({trip,person,onChange}){
 }
 
 // ── Flight Tracker ───────────────────────────────────────────
-const emptyFlight=()=>({id:Date.now(),route:"",airline:"",flightDate:"",cabin:"Business",cashPrice:"",cashCurrency:"EUR",milesPrice:"",milesProgram:"Etihad Guest",notes:"",recordedAt:nowTs()});
+const emptyFlight=()=>({id:Date.now(),route:"",airline:"",flightDate:"",cabin:"Business",cashPrice:"",cashCurrency:"EUR",milesPrice:"",milesProgram:"Etihad Guest",notes:"",recordedAt:nowTs(),screenshot:null});
 
-function FlightTracker({flights=[],onChange}){
+function FlightTracker({flights=[],onChange,apiKey}){
   const [adding,setAdding]=useState(false);
   const [form,setForm]=useState(emptyFlight());
-  const [expandedId,setExpandedId]=useState(null);
-
-  function saveEntry(){
-    if(!form.route)return;
-    onChange([...flights,{...form,id:Date.now(),recordedAt:nowTs()}]);
-    setForm(emptyFlight());
-    setAdding(false);
-  }
-  function deleteEntry(id){onChange(flights.filter(f=>f.id!==id));}
+  const [scanning,setScanning]=useState(false);
+  const [scanError,setScanError]=useState("");
+  const [previewImg,setPreviewImg]=useState(null);
+  const fileRef=useRef();
 
   const bestCash=flights.filter(f=>f.cashPrice).sort((a,b)=>+a.cashPrice-+b.cashPrice)[0];
   const bestMiles=flights.filter(f=>f.milesPrice).sort((a,b)=>+a.milesPrice-+b.milesPrice)[0];
 
+  async function handleScreenshot(e){
+    const file=e.target.files[0];
+    if(!file)return;
+    const reader=new FileReader();
+    reader.onload=async ev=>{
+      const dataUrl=ev.target.result;
+      const base64=dataUrl.split(",")[1];
+      const mediaType=file.type;
+      setPreviewImg(dataUrl);
+      if(apiKey){
+        setScanning(true);setScanError("");
+        try{
+          const result=await scanFlightScreenshot(base64,mediaType,apiKey);
+          setForm(f=>({...f,
+            route:result.route||f.route,
+            airline:result.airline||f.airline,
+            flightDate:result.flightDate||f.flightDate,
+            cabin:CABINS.includes(result.cabin)?result.cabin:f.cabin,
+            cashPrice:result.cashPrice||f.cashPrice,
+            cashCurrency:CURRENCIES.includes(result.cashCurrency)?result.cashCurrency:f.cashCurrency,
+            milesPrice:result.milesPrice||f.milesPrice,
+            milesProgram:result.milesProgram||f.milesProgram,
+            notes:result.notes||f.notes,
+            screenshot:dataUrl
+          }));
+        }catch(err){setScanError("Couldn't read screenshot — please fill in manually.");}
+        setScanning(false);
+      } else {
+        setForm(f=>({...f,screenshot:dataUrl}));
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function saveEntry(){
+    if(!form.route)return;
+    onChange([...flights,{...form,id:Date.now(),recordedAt:nowTs()}]);
+    setForm(emptyFlight());setPreviewImg(null);setAdding(false);
+  }
+  function deleteEntry(id){onChange(flights.filter(f=>f.id!==id));}
+
   return(
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-        <span style={{fontSize:13,fontWeight:700,color:"#1a1a1a"}}>✈️ Flight options</span>
-        <button onClick={()=>{setAdding(!adding);setForm(emptyFlight());}} className="btn-secondary">
+        <span style={{fontSize:13,fontWeight:700}}>✈️ Flight options</span>
+        <button onClick={()=>{setAdding(!adding);setForm(emptyFlight());setPreviewImg(null);setScanError("");}} className="btn-secondary">
           {adding?"Cancel":"+ Add option"}
         </button>
       </div>
 
-      {/* Best price summary */}
       {flights.length>1&&(
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
           {bestCash&&<div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,padding:"8px 10px"}}>
@@ -250,11 +362,36 @@ function FlightTracker({flights=[],onChange}){
         </div>
       )}
 
-      {/* Add form */}
       {adding&&(
         <div style={{background:"#fafafa",border:"1px solid #e5e5e5",borderRadius:10,padding:12,marginBottom:12}}>
+          {/* Screenshot upload */}
+          <div style={{marginBottom:12}}>
+            <input type="file" accept="image/*" ref={fileRef} style={{display:"none"}} onChange={handleScreenshot}/>
+            {!previewImg?(
+              <div className={`upload-zone${scanning?" scanning":""}`} onClick={()=>fileRef.current.click()}>
+                {scanning?(
+                  <div style={{color:"#f59e0b",fontSize:13}}><span className="spinner"/>Scanning screenshot…</div>
+                ):(
+                  <>
+                    <div style={{fontSize:24,marginBottom:6}}>📸</div>
+                    <div style={{fontSize:13,fontWeight:600,color:"#555",marginBottom:2}}>{apiKey?"Upload screenshot to autofill":"Upload screenshot"}</div>
+                    <div style={{fontSize:11,color:"#aaa"}}>{apiKey?"Claude will read the flight details automatically":"Image will be saved with the entry"}</div>
+                  </>
+                )}
+              </div>
+            ):(
+              <div style={{position:"relative"}}>
+                <img src={previewImg} style={{width:"100%",borderRadius:8,border:"1px solid #e5e5e5",maxHeight:180,objectFit:"cover"}} alt="screenshot"/>
+                <button onClick={()=>{setPreviewImg(null);setForm(f=>({...f,screenshot:null}));fileRef.current.value="";}}
+                  style={{position:"absolute",top:6,right:6,background:"rgba(0,0,0,0.5)",border:"none",borderRadius:12,color:"#fff",width:24,height:24,cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+                {apiKey&&!scanning&&<div style={{marginTop:6,fontSize:11,color:"#10b981",textAlign:"center"}}>✓ Fields autofilled — review below</div>}
+              </div>
+            )}
+            {scanError&&<div style={{color:"#ef4444",fontSize:11,marginTop:6}}>{scanError}</div>}
+          </div>
+
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
-            <div><label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>Route</label>
+            <div><label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>Route *</label>
               <input className="text-input" value={form.route} onChange={e=>setForm(f=>({...f,route:e.target.value}))} placeholder="AUH → TYO" style={{fontSize:13,padding:"7px 9px"}}/></div>
             <div><label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>Airline</label>
               <input className="text-input" value={form.airline} onChange={e=>setForm(f=>({...f,airline:e.target.value}))} placeholder="Etihad EY301" style={{fontSize:13,padding:"7px 9px"}}/></div>
@@ -287,20 +424,21 @@ function FlightTracker({flights=[],onChange}){
             <label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>Notes</label>
             <input className="text-input" value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} placeholder="e.g. includes taxes, direct flight" style={{fontSize:13,padding:"7px 9px"}}/>
           </div>
-          <button onClick={saveEntry} disabled={!form.route}
-            style={{width:"100%",padding:"9px",borderRadius:8,border:"none",background:form.route?"#ec4899":"#e5e5e5",color:"#fff",fontWeight:700,fontSize:13,cursor:form.route?"pointer":"default"}}>
+          <button onClick={saveEntry} disabled={!form.route||scanning}
+            style={{width:"100%",padding:"9px",borderRadius:8,border:"none",background:(form.route&&!scanning)?"#ec4899":"#e5e5e5",color:"#fff",fontWeight:700,fontSize:13,cursor:(form.route&&!scanning)?"pointer":"default"}}>
             Save flight option
           </button>
         </div>
       )}
 
-      {/* Flight entries */}
       {flights.length===0&&!adding&&<div style={{fontSize:12,color:"#aaa",textAlign:"center",padding:"12px 0"}}>No flight options yet — tap "+ Add option" to start tracking</div>}
+
       {[...flights].reverse().map(f=>(
         <div key={f.id} className="flight-card">
+          {f.screenshot&&<img src={f.screenshot} style={{width:"100%",borderRadius:6,marginBottom:8,maxHeight:120,objectFit:"cover"}} alt="flight screenshot"/>}
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
             <div>
-              <span style={{fontWeight:700,fontSize:14,color:"#1a1a1a"}}>{f.route}</span>
+              <span style={{fontWeight:700,fontSize:14}}>{f.route}</span>
               <span style={{fontSize:12,color:"#666",marginLeft:8}}>{f.airline}</span>
             </div>
             <div style={{display:"flex",gap:6,alignItems:"center"}}>
@@ -308,7 +446,7 @@ function FlightTracker({flights=[],onChange}){
               <button onClick={()=>deleteEntry(f.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#ccc",fontSize:16,lineHeight:1}}>×</button>
             </div>
           </div>
-          <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:6}}>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:6}}>
             {f.cashPrice&&<div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:6,padding:"4px 10px"}}>
               <span style={{fontSize:11,color:"#16a34a",fontWeight:700}}>{Number(f.cashPrice).toLocaleString()} {f.cashCurrency}</span>
               <span style={{fontSize:10,color:"#888",marginLeft:4}}>cash</span>
@@ -330,12 +468,24 @@ function FlightTracker({flights=[],onChange}){
 // ── Main App ─────────────────────────────────────────────────
 function App(){
   const [unlocked,setUnlocked]=useState(!!sessionStorage.getItem(PIN_KEY));
-  useEffect(()=>{if(unlocked&&window._fbAuth&&!window._fbAuth.currentUser)window._fbSignInAnonymously(window._fbAuth).catch(console.error);},[unlocked]);
+  const [apiKey,setApiKey]=useState(localStorage.getItem(API_KEY_STORAGE));
+  const [apiKeySetup,setApiKeySetup]=useState(false);
+
+  useEffect(()=>{
+    if(unlocked&&window._fbAuth&&!window._fbAuth.currentUser)
+      window._fbSignInAnonymously(window._fbAuth).catch(console.error);
+  },[unlocked]);
+
+  useEffect(()=>{
+    if(unlocked&&apiKey===null)setApiKeySetup(true);
+  },[unlocked,apiKey]);
+
   if(!unlocked)return<PinScreen onUnlock={()=>setUnlocked(true)}/>;
-  return<Planner/>;
+  if(apiKeySetup)return<ApiKeyScreen onSave={k=>{setApiKey(k);setApiKeySetup(false);}}/>;
+  return<Planner apiKey={apiKey}/>;
 }
 
-function Planner(){
+function Planner({apiKey}){
   const [state,setState]=useState(null);
   const [synced,setSynced]=useState(false);
   const [year,setYear]=useState(2026);
@@ -343,7 +493,7 @@ function Planner(){
   const [editTrip,setEditTrip]=useState(null);
   const [pickerPerson,setPickerPerson]=useState("salma");
   const [whatIf,setWhatIf]=useState({month:"2026-07",days:5,who:"both"});
-  const [activeTab,setActiveTab]=useState("details"); // "details" | "flights"
+  const [activeTab,setActiveTab]=useState("details");
   const skipSave=useRef(false);
 
   useEffect(()=>{
@@ -352,12 +502,10 @@ function Planner(){
       window._fbOnValue(r,snap=>{
         const val=snap.val();
         skipSave.current=true;
-        // ensure flights array exists
         const s=val||DEFAULT;
-        s.trips=s.trips.map(t=>({flights:[],...t}));
+        s.trips=(s.trips||[]).map(t=>({flights:[],...t}));
         s.scenarios=(s.scenarios||[]).map(t=>({flights:[],...t}));
-        setState(s);
-        setSynced(true);
+        setState(s);setSynced(true);
         setTimeout(()=>{skipSave.current=false;},100);
       });
     }
@@ -367,7 +515,10 @@ function Planner(){
 
   useEffect(()=>{
     if(!state||skipSave.current)return;
-    window._fbSet(window._fbRef(window._fbDb,"planner"),state).catch(console.error);
+    // strip screenshot data before saving to Firebase (too large)
+    const strip=trips=>trips.map(t=>({...t,flights:(t.flights||[]).map(f=>({...f,screenshot:null}))}));
+    const s={...state,trips:strip(state.trips),scenarios:strip(state.scenarios)};
+    window._fbSet(window._fbRef(window._fbDb,"planner"),s).catch(console.error);
   },[state]);
 
   function save(s){setState(s);}
@@ -391,8 +542,8 @@ function Planner(){
   }
   function deleteTrip(id){save({...state,trips:state.trips.filter(x=>x.id!==id),scenarios:state.scenarios.filter(x=>x.id!==id)});setSheet(null);}
   function updateFlights(tripId,flights){
-    const updateList=list=>list.map(t=>t.id===tripId?{...t,flights}:t);
-    save({...state,trips:updateList(state.trips),scenarios:updateList(state.scenarios)});
+    const upd=list=>list.map(t=>t.id===tripId?{...t,flights}:t);
+    save({...state,trips:upd(state.trips),scenarios:upd(state.scenarios)});
     setEditTrip(t=>({...t,flights}));
   }
 
@@ -402,15 +553,12 @@ function Planner(){
 
   return(
     <div style={{maxWidth:520,margin:"0 auto",padding:"14px 12px 100px"}}>
-      {/* Header */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
         <div>
-          <h2 style={{fontSize:17,fontWeight:700,marginBottom:2,color:"#1a1a1a"}}>🗓 Holiday Planner</h2>
+          <h2 style={{fontSize:17,fontWeight:700,marginBottom:2}}>🗓 Holiday Planner</h2>
           <div style={{display:"flex",alignItems:"center",gap:6}}>
             <span style={{fontSize:11,color:"#888"}}>Salma & Adis · 2026–2027</span>
-            <span className="sync-badge" style={{background:synced?"#f0fdf4":"#f5f5f5",color:synced?"#16a34a":"#888"}}>
-              {synced?"● live":"○ connecting"}
-            </span>
+            <span className="sync-badge" style={{background:synced?"#f0fdf4":"#f5f5f5",color:synced?"#16a34a":"#888"}}>{synced?"● live":"○ connecting"}</span>
           </div>
         </div>
         <div style={{display:"flex",gap:5}}>
@@ -420,7 +568,6 @@ function Planner(){
         </div>
       </div>
 
-      {/* Balances */}
       <div className="balance-grid">
         {[{name:"Salma",left:sLeft,used:sUsed,planned:sPlanned,total:state.salma.total,key:"salma"},{name:"Adis",left:aLeft,used:aUsed,planned:aPlanned,total:state.adis.total,key:"adis"}].map(p=>(
           <div key={p.key} className="balance-card">
@@ -439,7 +586,6 @@ function Planner(){
         ))}
       </div>
 
-      {/* Legend */}
       <div style={{display:"flex",gap:10,marginBottom:10,flexWrap:"wrap",fontSize:10,color:"#888"}}>
         {[["#ec4899",2,"Committed"],["#f59e0b",2,"Planned"],["#10b981",8,"Hessen PH"],["#3b82f6",8,"Abu Dhabi PH"]].map(([c,r,l])=>(
           <span key={l} style={{display:"flex",alignItems:"center",gap:3}}>
@@ -448,7 +594,6 @@ function Planner(){
         ))}
       </div>
 
-      {/* Calendar */}
       <div className="cal-grid">
         {Array.from({length:12},(_,i)=>({y:year,m:i})).map(({y,m})=>{
           const trips=tripsForMonth(y,m);
@@ -458,7 +603,7 @@ function Planner(){
           const today=new Date();
           return(
             <div key={`${y}-${m}`} className="month-card">
-              <div style={{fontWeight:700,fontSize:11,marginBottom:5,color:"#1a1a1a"}}>{MONTHS[m]}</div>
+              <div style={{fontWeight:700,fontSize:11,marginBottom:5}}>{MONTHS[m]}</div>
               <div className="day-grid">
                 {["M","T","W","T","F","S","S"].map((d,i)=><div key={i} style={{fontSize:7,color:"#bbb",paddingBottom:1}}>{d}</div>)}
                 {cells.map((day,i)=>{
@@ -498,19 +643,16 @@ function Planner(){
         })}
       </div>
 
-      {/* FABs */}
       <div className="fab-wrap">
         <button className="fab" onClick={()=>setSheet(s=>s==="whatif"?null:"whatif")} style={{width:46,height:46,borderRadius:23,background:"#f59e0b",color:"#fff",fontSize:18,fontWeight:700}}>?</button>
         <button className="fab" onClick={openNew} style={{width:56,height:56,borderRadius:28,background:"#ec4899",color:"#fff",fontSize:26}}>+</button>
       </div>
 
-      {/* Trip sheet */}
       <BottomSheet open={sheet==="trip"} onClose={()=>setSheet(null)} title={editTrip?.isNew?"New trip":editTrip?.name||"Edit trip"}>
         {editTrip&&(
           <>
-            {/* Tabs */}
             <div style={{display:"flex",gap:0,marginBottom:16,borderBottom:"1px solid #e5e5e5"}}>
-              {[["details","Details"],["flights",`Flights${editTrip.flights?.length>0?` (${editTrip.flights.length})`:""}` ]].map(([t,l])=>(
+              {[["details","Details"],["flights",`Flights${editTrip.flights?.length>0?` (${editTrip.flights.length})`:""}`]].map(([t,l])=>(
                 <button key={t} onClick={()=>setActiveTab(t)}
                   style={{flex:1,padding:"8px 4px",border:"none",background:"transparent",color:activeTab===t?"#ec4899":"#aaa",fontWeight:activeTab===t?700:400,fontSize:13,cursor:"pointer",borderBottom:activeTab===t?"2px solid #ec4899":"2px solid transparent",marginBottom:-1}}>
                   {l}
@@ -564,19 +706,13 @@ function Planner(){
             )}
 
             {activeTab==="flights"&&(
-              <FlightTracker
-                flights={editTrip.flights||[]}
-                onChange={flights=>{
-                  setEditTrip(t=>({...t,flights}));
-                  if(!editTrip.isNew)updateFlights(editTrip.id,flights);
-                }}
-              />
+              <FlightTracker flights={editTrip.flights||[]} apiKey={apiKey}
+                onChange={flights=>{setEditTrip(t=>({...t,flights}));if(!editTrip.isNew)updateFlights(editTrip.id,flights);}}/>
             )}
           </>
         )}
       </BottomSheet>
 
-      {/* What-if sheet */}
       <BottomSheet open={sheet==="whatif"} onClose={()=>setSheet(null)} title="What-if scenario">
         <div className="field"><label>Month</label>
           <select className="select-input" value={whatIf.month} onChange={e=>setWhatIf(w=>({...w,month:e.target.value}))}>
@@ -584,7 +720,7 @@ function Planner(){
           </select></div>
         <div className="field"><label>Who</label>
           <ToggleGroup options={[["both","👫 Both"],["salma","Salma"],["adis","Adis"]]} value={whatIf.who} onChange={v=>setWhatIf(w=>({...w,who:v}))} accent="#f59e0b"/></div>
-        <div className="field"><label>PTO days: <b style={{color:"#1a1a1a",fontSize:15}}>{whatIf.days}</b></label>
+        <div className="field"><label>PTO days: <b style={{fontSize:15}}>{whatIf.days}</b></label>
           <input type="range" min={1} max={30} value={whatIf.days} onChange={e=>setWhatIf(w=>({...w,days:+e.target.value}))} style={{width:"100%",accentColor:"#f59e0b",height:24}}/></div>
         <div style={{background:"#fafafa",borderRadius:10,padding:14,border:"1px solid #e5e5e5",marginBottom:16}}>
           {whatIf.who!=="adis"&&<div style={{display:"flex",justifyContent:"space-between",marginBottom:6,fontSize:13}}><span style={{color:"#888"}}>Salma</span><span><b>{sLeft}</b> → <b style={{color:sWI<0?"#ef4444":"#10b981",fontSize:15}}>{sWI}</b> days left</span></div>}
