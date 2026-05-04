@@ -260,30 +260,37 @@ function DayPicker({trip,person,onChange}){
 }
 
 // ── Flight Tracker ───────────────────────────────────────────
-const emptyFlight=()=>({id:Date.now(),route:"",airline:"",flightDate:"",cabin:"Business",cashPrice:"",cashCurrency:"EUR",milesPrice:"",milesProgram:"Etihad Guest",notes:"",recordedAt:nowTs(),screenshot:null});
+const emptyFlight=()=>({id:Date.now(),route:"",airline:"",flightDate:"",cabin:"Business",cashPriceTotal:"",cashPricePP:"",cashCurrency:"AED",milesPrice:"",milesProgram:"Etihad Guest",pax:2,notes:"",recordedAt:nowTs(),screenshots:[]});
 
 function FlightTracker({flights=[],onChange}){
   const [adding,setAdding]=useState(false);
   const [form,setForm]=useState(emptyFlight());
   const [scanning,setScanning]=useState(false);
   const [scanError,setScanError]=useState("");
-  const [previewImg,setPreviewImg]=useState(null);
+  const [previews,setPreviews]=useState([]);
   const fileRef=useRef();
 
-  const bestCash=flights.filter(f=>f.cashPrice).sort((a,b)=>+a.cashPrice-+b.cashPrice)[0];
+  const bestCash=flights.filter(f=>f.cashPricePP||f.cashPriceTotal).sort((a,b)=>+(a.cashPricePP||a.cashPriceTotal)-+(b.cashPricePP||b.cashPriceTotal))[0];
   const bestMiles=flights.filter(f=>f.milesPrice).sort((a,b)=>+a.milesPrice-+b.milesPrice)[0];
 
   async function handleScreenshot(e){
     const file=e.target.files[0];
     if(!file)return;
-    const reader=new FileReader();
-    reader.onload=async ev=>{
-      const dataUrl=ev.target.result;
-      const base64=dataUrl.split(",")[1];
-      const mediaType=file.type;
-      setPreviewImg(dataUrl);
-      if(apiKey){
-        setScanning(true);setScanError("");
+    fileRef.current.value="";
+    setScanning(true);setScanError("");
+    // Use setTimeout to let UI update before heavy work
+    setTimeout(async()=>{
+      try{
+        const dataUrl=await new Promise((res,rej)=>{
+          const r=new FileReader();
+          r.onload=ev=>res(ev.target.result);
+          r.onerror=rej;
+          r.readAsDataURL(file);
+        });
+        const base64=dataUrl.split(",")[1];
+        const mediaType=file.type;
+        setPreviews(p=>[...p,dataUrl]);
+        setForm(f=>({...f,screenshots:[...(f.screenshots||[]),dataUrl]}));
         try{
           const result=await scanFlightScreenshot(base64,mediaType);
           setForm(f=>({...f,
@@ -291,34 +298,54 @@ function FlightTracker({flights=[],onChange}){
             airline:result.airline||f.airline,
             flightDate:result.flightDate||f.flightDate,
             cabin:CABINS.includes(result.cabin)?result.cabin:f.cabin,
-            cashPrice:result.cashPrice||f.cashPrice,
+            cashPriceTotal:result.cashPrice||f.cashPriceTotal,
+            cashPricePP:result.cashPrice&&f.pax?String(Math.round(+result.cashPrice/f.pax)):f.cashPricePP,
             cashCurrency:CURRENCIES.includes(result.cashCurrency)?result.cashCurrency:f.cashCurrency,
             milesPrice:result.milesPrice||f.milesPrice,
             milesProgram:result.milesProgram||f.milesProgram,
             notes:result.notes||f.notes,
-            screenshot:dataUrl
           }));
-        }catch(err){setScanError("Couldn't read screenshot — please fill in manually.");}
-        setScanning(false);
-      } else {
-        setForm(f=>({...f,screenshot:dataUrl}));
-      }
-    };
-    reader.readAsDataURL(file);
+        }catch(err){setScanError("Couldn't read screenshot — fields not autofilled.");}
+      }catch(err){setScanError("Failed to load image.");}
+      setScanning(false);
+    },50);
+  }
+
+  // auto-sync total↔pp when pax changes
+  function handlePaxChange(val){
+    const n=+val;
+    setForm(f=>{
+      const total=f.cashPriceTotal?+f.cashPriceTotal:null;
+      const pp=f.cashPricePP?+f.cashPricePP:null;
+      return{...f,pax:n,
+        cashPricePP:total&&n?String(Math.round(total/n)):f.cashPricePP,
+        cashPriceTotal:pp&&n?String(Math.round(pp*n)):f.cashPriceTotal,
+      };
+    });
+  }
+  function handleTotalChange(val){
+    setForm(f=>({...f,cashPriceTotal:val,cashPricePP:val&&f.pax?String(Math.round(+val/f.pax)):""}));
+  }
+  function handlePPChange(val){
+    setForm(f=>({...f,cashPricePP:val,cashPriceTotal:val&&f.pax?String(Math.round(+val*f.pax)):""}));
   }
 
   function saveEntry(){
     if(!form.route)return;
     onChange([...flights,{...form,id:Date.now(),recordedAt:nowTs()}]);
-    setForm(emptyFlight());setPreviewImg(null);setAdding(false);
+    setForm(emptyFlight());setPreviews([]);setAdding(false);setScanError("");
   }
   function deleteEntry(id){onChange(flights.filter(f=>f.id!==id));}
+  function removePreview(idx){
+    setPreviews(p=>p.filter((_,i)=>i!==idx));
+    setForm(f=>({...f,screenshots:(f.screenshots||[]).filter((_,i)=>i!==idx)}));
+  }
 
   return(
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
         <span style={{fontSize:13,fontWeight:700}}>✈️ Flight options</span>
-        <button onClick={()=>{setAdding(!adding);setForm(emptyFlight());setPreviewImg(null);setScanError("");}} className="btn-secondary">
+        <button onClick={()=>{setAdding(!adding);setForm(emptyFlight());setPreviews([]);setScanError("");}} className="btn-secondary">
           {adding?"Cancel":"+ Add option"}
         </button>
       </div>
@@ -326,8 +353,8 @@ function FlightTracker({flights=[],onChange}){
       {flights.length>1&&(
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
           {bestCash&&<div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,padding:"8px 10px"}}>
-            <div style={{fontSize:10,color:"#16a34a",fontWeight:600,marginBottom:2}}>BEST CASH</div>
-            <div style={{fontSize:15,fontWeight:700,color:"#15803d"}}>{Number(bestCash.cashPrice).toLocaleString()} {bestCash.cashCurrency}</div>
+            <div style={{fontSize:10,color:"#16a34a",fontWeight:600,marginBottom:2}}>BEST CASH / PP</div>
+            <div style={{fontSize:15,fontWeight:700,color:"#15803d"}}>{Number(bestCash.cashPricePP||bestCash.cashPriceTotal).toLocaleString()} {bestCash.cashCurrency}</div>
             <div style={{fontSize:10,color:"#666"}}>{bestCash.airline} · {bestCash.cabin}</div>
           </div>}
           {bestMiles&&<div style={{background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:8,padding:"8px 10px"}}>
@@ -340,37 +367,40 @@ function FlightTracker({flights=[],onChange}){
 
       {adding&&(
         <div style={{background:"#fafafa",border:"1px solid #e5e5e5",borderRadius:10,padding:12,marginBottom:12}}>
-          {/* Screenshot upload */}
+          {/* Screenshots */}
           <div style={{marginBottom:12}}>
-            <input type="file" accept="image/*" ref={fileRef} style={{display:"none"}} onChange={handleScreenshot}/>
-            {!previewImg?(
-              <div className={`upload-zone${scanning?" scanning":""}`} onClick={()=>fileRef.current.click()}>
-                {scanning?(
-                  <div style={{color:"#f59e0b",fontSize:13}}><span className="spinner"/>Scanning screenshot…</div>
-                ):(
-                  <>
-                    <div style={{fontSize:24,marginBottom:6}}>📸</div>
-                    <div style={{fontSize:13,fontWeight:600,color:"#555",marginBottom:2}}>Upload screenshot to autofill</div>
-                    <div style={{fontSize:11,color:"#aaa"}}>Claude will read the flight details automatically</div>
-                  </>
-                )}
-              </div>
-            ):(
-              <div style={{position:"relative"}}>
-                <img src={previewImg} style={{width:"100%",borderRadius:8,border:"1px solid #e5e5e5",maxHeight:180,objectFit:"cover"}} alt="screenshot"/>
-                <button onClick={()=>{setPreviewImg(null);setForm(f=>({...f,screenshot:null}));fileRef.current.value="";}}
-                  style={{position:"absolute",top:6,right:6,background:"rgba(0,0,0,0.5)",border:"none",borderRadius:12,color:"#fff",width:24,height:24,cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
-                {apiKey&&!scanning&&<div style={{marginTop:6,fontSize:11,color:"#10b981",textAlign:"center"}}>✓ Fields autofilled — review below</div>}
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+              <span style={{fontSize:11,color:"#888",fontWeight:600}}>Screenshots</span>
+              <input type="file" accept="image/*" ref={fileRef} style={{display:"none"}} onChange={handleScreenshot}/>
+              <button onClick={()=>fileRef.current.click()} className="btn-secondary" disabled={scanning}
+                style={{fontSize:11,padding:"4px 10px"}}>
+                {scanning?<><span className="spinner"/>Scanning…</>:"📸 Add screenshot"}
+              </button>
+            </div>
+            {scanError&&<div style={{color:"#ef4444",fontSize:11,marginBottom:6}}>{scanError}</div>}
+            {previews.length>0&&(
+              <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:6}}>
+                {previews.map((src,i)=>(
+                  <div key={i} style={{position:"relative",width:72,height:72}}>
+                    <img src={src} style={{width:72,height:72,objectFit:"cover",borderRadius:6,border:"1px solid #e5e5e5"}} alt=""/>
+                    <button onClick={()=>removePreview(i)} style={{position:"absolute",top:-4,right:-4,background:"#ef4444",border:"none",borderRadius:10,color:"#fff",width:18,height:18,cursor:"pointer",fontSize:11,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+                  </div>
+                ))}
               </div>
             )}
-            {scanError&&<div style={{color:"#ef4444",fontSize:11,marginTop:6}}>{scanError}</div>}
+            {previews.length===0&&!scanning&&<div className="upload-zone" onClick={()=>fileRef.current.click()} style={{padding:12}}>
+              <div style={{fontSize:20,marginBottom:4}}>📸</div>
+              <div style={{fontSize:12,color:"#888"}}>Upload screenshot — Claude will autofill the fields</div>
+            </div>}
+            {scanning&&previews.length===0&&<div style={{textAlign:"center",padding:12,color:"#f59e0b",fontSize:13}}><span className="spinner"/>Scanning…</div>}
+            {previews.length>0&&!scanning&&<div style={{fontSize:11,color:"#10b981",marginTop:4}}>✓ {previews.length} screenshot{previews.length>1?"s":""} attached — fields autofilled below</div>}
           </div>
 
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
             <div><label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>Route *</label>
-              <input className="text-input" value={form.route} onChange={e=>setForm(f=>({...f,route:e.target.value}))} placeholder="AUH → TYO" style={{fontSize:13,padding:"7px 9px"}}/></div>
+              <input className="text-input" value={form.route} onChange={e=>setForm(f=>({...f,route:e.target.value}))} placeholder="AUH → DPS" style={{fontSize:13,padding:"7px 9px"}}/></div>
             <div><label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>Airline</label>
-              <input className="text-input" value={form.airline} onChange={e=>setForm(f=>({...f,airline:e.target.value}))} placeholder="Etihad EY301" style={{fontSize:13,padding:"7px 9px"}}/></div>
+              <input className="text-input" value={form.airline} onChange={e=>setForm(f=>({...f,airline:e.target.value}))} placeholder="Etihad EY474" style={{fontSize:13,padding:"7px 9px"}}/></div>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
             <div><label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>Flight date</label>
@@ -380,13 +410,19 @@ function FlightTracker({flights=[],onChange}){
                 {CABINS.map(c=><option key={c}>{c}</option>)}
               </select></div>
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:8,marginBottom:8}}>
-            <div><label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>Cash price</label>
-              <input type="number" className="text-input" value={form.cashPrice} onChange={e=>setForm(f=>({...f,cashPrice:e.target.value}))} placeholder="1200" style={{fontSize:13,padding:"7px 9px"}}/></div>
-            <div><label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>Currency</label>
-              <select className="select-input" value={form.cashCurrency} onChange={e=>setForm(f=>({...f,cashCurrency:e.target.value}))} style={{fontSize:13,padding:"7px 9px"}}>
-                {CURRENCIES.map(c=><option key={c}>{c}</option>)}
-              </select></div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:8}}>
+            <div><label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>Total price</label>
+              <input type="number" className="text-input" value={form.cashPriceTotal} onChange={e=>handleTotalChange(e.target.value)} placeholder="10060" style={{fontSize:13,padding:"7px 9px"}}/></div>
+            <div><label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>Per person</label>
+              <input type="number" className="text-input" value={form.cashPricePP} onChange={e=>handlePPChange(e.target.value)} placeholder="5030" style={{fontSize:13,padding:"7px 9px"}}/></div>
+            <div><label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>Pax / Currency</label>
+              <div style={{display:"flex",gap:4}}>
+                <input type="number" className="text-input" value={form.pax} onChange={e=>handlePaxChange(e.target.value)} min={1} max={9} style={{fontSize:13,padding:"7px 6px",width:44}}/>
+                <select className="select-input" value={form.cashCurrency} onChange={e=>setForm(f=>({...f,cashCurrency:e.target.value}))} style={{fontSize:12,padding:"7px 4px"}}>
+                  {CURRENCIES.map(c=><option key={c}>{c}</option>)}
+                </select>
+              </div>
+            </div>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:8,marginBottom:8}}>
             <div><label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>Miles price</label>
@@ -398,7 +434,7 @@ function FlightTracker({flights=[],onChange}){
           </div>
           <div style={{marginBottom:10}}>
             <label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>Notes</label>
-            <input className="text-input" value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} placeholder="e.g. includes taxes, direct flight" style={{fontSize:13,padding:"7px 9px"}}/>
+            <input className="text-input" value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} placeholder="e.g. includes taxes, non-stop" style={{fontSize:13,padding:"7px 9px"}}/>
           </div>
           <button onClick={saveEntry} disabled={!form.route||scanning}
             style={{width:"100%",padding:"9px",borderRadius:8,border:"none",background:(form.route&&!scanning)?"#ec4899":"#e5e5e5",color:"#fff",fontWeight:700,fontSize:13,cursor:(form.route&&!scanning)?"pointer":"default"}}>
@@ -411,7 +447,14 @@ function FlightTracker({flights=[],onChange}){
 
       {[...flights].reverse().map(f=>(
         <div key={f.id} className="flight-card">
-          {f.screenshot&&<img src={f.screenshot} style={{width:"100%",borderRadius:6,marginBottom:8,maxHeight:120,objectFit:"cover"}} alt="flight screenshot"/>}
+          {/* Screenshots thumbnails */}
+          {f.screenshots?.length>0&&(
+            <div style={{display:"flex",gap:4,marginBottom:8,flexWrap:"wrap"}}>
+              {f.screenshots.map((src,i)=>(
+                <img key={i} src={src} style={{width:56,height:56,objectFit:"cover",borderRadius:5,border:"1px solid #e5e5e5"}} alt=""/>
+              ))}
+            </div>
+          )}
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
             <div>
               <span style={{fontWeight:700,fontSize:14}}>{f.route}</span>
@@ -423,16 +466,16 @@ function FlightTracker({flights=[],onChange}){
             </div>
           </div>
           <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:6}}>
-            {f.cashPrice&&<div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:6,padding:"4px 10px"}}>
-              <span style={{fontSize:11,color:"#16a34a",fontWeight:700}}>{Number(f.cashPrice).toLocaleString()} {f.cashCurrency}</span>
-              <span style={{fontSize:10,color:"#888",marginLeft:4}}>cash</span>
+            {(f.cashPriceTotal||f.cashPricePP)&&<div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:6,padding:"4px 10px"}}>
+              {f.cashPriceTotal&&<span style={{fontSize:11,color:"#16a34a",fontWeight:700}}>{Number(f.cashPriceTotal).toLocaleString()} {f.cashCurrency} total</span>}
+              {f.cashPricePP&&<span style={{fontSize:11,color:"#16a34a"}}> · {Number(f.cashPricePP).toLocaleString()}/pp</span>}
             </div>}
             {f.milesPrice&&<div style={{background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:6,padding:"4px 10px"}}>
               <span style={{fontSize:11,color:"#2563eb",fontWeight:700}}>{Number(f.milesPrice).toLocaleString()} mi</span>
               <span style={{fontSize:10,color:"#888",marginLeft:4}}>{f.milesProgram}</span>
             </div>}
           </div>
-          {f.flightDate&&<div style={{fontSize:11,color:"#888",marginBottom:3}}>✈ {f.flightDate}</div>}
+          {f.flightDate&&<div style={{fontSize:11,color:"#888",marginBottom:3}}>✈ {f.flightDate} · {f.pax||2} pax</div>}
           {f.notes&&<div style={{fontSize:11,color:"#666",fontStyle:"italic",marginBottom:3}}>"{f.notes}"</div>}
           <div style={{fontSize:10,color:"#bbb"}}>Recorded {fmtTs(f.recordedAt)}</div>
         </div>
