@@ -11,7 +11,7 @@ exports.handler = async function(event) {
   let body;
   try { body = JSON.parse(event.body); }
   catch { return { statusCode: 400, body: JSON.stringify({ error: "Invalid request body" }) }; }
-
+ 
   const { images } = body;
   if (!images || !images.length) {
     return { statusCode: 400, body: JSON.stringify({ error: "Missing images array" }) };
