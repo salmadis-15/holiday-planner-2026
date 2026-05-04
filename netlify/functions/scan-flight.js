@@ -10,36 +10,45 @@ exports.handler = async function(event) {
 
   let body;
   try { body = JSON.parse(event.body); }
-  catch { return { statusCode: 400, body: JSON.stringify({ error: "Invalid request body" }) }; }
- 
-  const { images } = body;
+  catch (e) { return { statusCode: 400, body: JSON.stringify({ error: "Invalid JSON: " + e.message }) }; }
+
+  const { images, currentYear } = body;
   if (!images || !images.length) {
     return { statusCode: 400, body: JSON.stringify({ error: "Missing images array" }) };
   }
 
+  const year = currentYear || 2026;
+
   const prompt = `You are analyzing one or more flight search screenshots. Extract ALL flight options visible across ALL screenshots.
 
-For each unique combination of route + cabin class + price, create a separate entry. For example if you see Economy and Business prices for the same route, return TWO entries.
+For each unique combination of route + cabin class + price type, create a separate entry. For example if you see Economy and Business prices, return TWO entries. If you see both cash price AND miles+taxes price for the same cabin, return TWO entries (one cash, one miles).
 
 If screenshots show outbound + return legs of the same trip, treat them as a round trip and merge into one entry per cabin class.
 
+CRITICAL for dates: The current year is ${year}. When you see dates like "26 May" or "01 Jun" without a year, ALWAYS use ${year}. NEVER use 2020 or any other year unless explicitly shown.
+
+For miles redemptions: extract milesPrice (total miles all pax), milesTaxTotal (total cash taxes all pax), milesTaxCurrency, set cashPriceTotal to null.
+For cash bookings: extract cashPriceTotal (total all pax), set milesPrice to null.
+
 Return ONLY a JSON array. Each element:
 {
-  "route": "full route e.g. AUH → DPS → AUH for round trip",
-  "airline": "airline name(s) and flight number(s)",
-  "outboundDate": "YYYY-MM-DD or null",
+  "route": "e.g. AUH -> DPS -> AUH",
+  "airline": "airline and flight numbers",
+  "outboundDate": "YYYY-MM-DD",
   "returnDate": "YYYY-MM-DD or null",
   "cabin": "Economy|Premium Economy|Business|First",
-  "cashPriceTotal": "total numeric price for all pax, no currency symbol, or null",
-  "cashCurrency": "3-letter code e.g. AED",
-  "pax": integer number of passengers,
-  "milesPrice": "total miles numeric or null",
+  "cashPriceTotal": numeric or null,
+  "cashCurrency": "AED",
+  "pax": integer,
+  "milesPrice": numeric or null,
+  "milesTaxTotal": numeric or null,
+  "milesTaxCurrency": "AED",
   "milesProgram": "program name or null",
   "isRoundTrip": true or false,
-  "notes": "duration, stops, taxes, fare class, any extra info"
+  "notes": "brief summary"
 }
 
-Return ONLY the JSON array, no explanation, no markdown.`;
+Return ONLY the JSON array, no explanation, no markdown backticks.`;
 
   const content = [
     ...images.map(img => ({
@@ -64,16 +73,25 @@ Return ONLY the JSON array, no explanation, no markdown.`;
       })
     });
 
+    const responseText = await res.text();
+
     if (!res.ok) {
-      const err = await res.text();
-      return { statusCode: res.status, body: JSON.stringify({ error: err }) };
+      console.error("Anthropic API error:", res.status, responseText);
+      return { statusCode: res.status, body: JSON.stringify({ error: "Anthropic API error: " + responseText }) };
     }
 
-    const data = await res.json();
+    const data = JSON.parse(responseText);
     const text = data.content[0].text.trim().replace(/```json|```/g, "").trim();
-    let parsed = JSON.parse(text);
 
-    // Fix wrong years — replace any year that isn't current or next year
+    let parsed;
+    try {
+      parsed = JSON.parse(text);
+    } catch(e) {
+      console.error("JSON parse error:", e.message, "Raw text:", text);
+      return { statusCode: 500, body: JSON.stringify({ error: "Failed to parse AI response: " + text.slice(0, 200) }) };
+    }
+
+    // Fix wrong years
     const fixDate = (d) => {
       if (!d) return d;
       const match = d.match(/^(\d{4})-(\d{2}-\d{2})$/);
@@ -82,6 +100,7 @@ Return ONLY the JSON array, no explanation, no markdown.`;
       if (y !== year && y !== year + 1) return `${year}-${match[2]}`;
       return d;
     };
+
     parsed = parsed.map(f => ({
       ...f,
       outboundDate: fixDate(f.outboundDate),
@@ -93,7 +112,9 @@ Return ONLY the JSON array, no explanation, no markdown.`;
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(parsed)
     };
+
   } catch (err) {
+    console.error("Function error:", err);
     return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
   }
 };
