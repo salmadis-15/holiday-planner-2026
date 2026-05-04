@@ -71,7 +71,22 @@ Return ONLY the JSON array, no explanation, no markdown.`;
 
     const data = await res.json();
     const text = data.content[0].text.trim().replace(/```json|```/g, "").trim();
-    const parsed = JSON.parse(text);
+    let parsed = JSON.parse(text);
+
+    // Fix wrong years — replace any year that isn't current or next year
+    const fixDate = (d) => {
+      if (!d) return d;
+      const match = d.match(/^(\d{4})-(\d{2}-\d{2})$/);
+      if (!match) return d;
+      const y = parseInt(match[1]);
+      if (y !== year && y !== year + 1) return `${year}-${match[2]}`;
+      return d;
+    };
+    parsed = parsed.map(f => ({
+      ...f,
+      outboundDate: fixDate(f.outboundDate),
+      returnDate: fixDate(f.returnDate),
+    }));
 
     return {
       statusCode: 200,
