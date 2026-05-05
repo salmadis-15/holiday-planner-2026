@@ -673,7 +673,7 @@ function Planner(){
   const pct=(u,t)=>Math.min(100,Math.round((u/t)*100));
 
   function openNew(){
-    setEditTrip({id:Date.now(),name:"",who:"both",start:"",end:"",tripType:"holiday",status:"planned",ptoDays:null,flights:[],isNew:true});
+    setEditTrip({id:Date.now(),name:"",destination:"",who:"both",start:"",end:"",tripType:"holiday",status:"planned",ptoDays:null,flights:[],isNew:true});
     setPickerPerson("salma");setActiveTab("details");setTripCreateMode(null);
     setTripScanError("");setTripScanPreviews([]);setTripPendingImages([]);setSheet("trip");
   }
@@ -699,7 +699,7 @@ function Planner(){
         const dest=r.route?r.route.split(/->|→/).pop().trim():"";
         const pax=r.pax||2;const total=r.cashPriceTotal?String(r.cashPriceTotal):"";
         const flight={...emptyFlight(),id:Date.now(),route:r.route||"",airline:r.airline||"",outboundDate:r.outboundDate||"",returnDate:r.returnDate||"",cabin:CABINS.includes(r.cabin)?r.cabin:"Economy",cashPriceTotal:total,cashPricePP:total&&pax?String(Math.round(+total/pax)):"",cashCurrency:CURRENCIES.includes(r.cashCurrency)?r.cashCurrency:"AED",milesPrice:r.milesPrice?String(r.milesPrice):"",milesTaxTotal:r.milesTaxTotal?String(r.milesTaxTotal):"",milesTaxCurrency:r.milesTaxCurrency||"AED",milesProgram:r.milesProgram||"Etihad Guest",pax,isRoundTrip:r.isRoundTrip??true,notes:r.notes||"",recordedAt:nowTs(),screenshots:tripScanPreviews};
-        setEditTrip(t=>({...t,name:dest||t.name,start:r.outboundDate||t.start,end:r.returnDate||r.outboundDate||t.end,flights:[flight]}));
+        setEditTrip(t=>({...t,name:dest||t.name,destination:dest||t.destination,start:r.outboundDate||t.start,end:r.returnDate||r.outboundDate||t.end,flights:[flight]}));
         setTripCreateMode("manual");setActiveTab("details");
       }else{setTripScanError("Couldn't read — fill manually.");}
     }catch{setTripScanError("Failed to process.");}
@@ -907,7 +907,9 @@ function Planner(){
                 {activeTab==="details"&&(
                   <>
                     <div className="field"><label>Trip name</label>
-                      <input className="text-input" value={editTrip.name} onChange={e=>setEditTrip(t=>({...t,name:e.target.value}))} placeholder="e.g. Bali, Japan…"/></div>
+                      <input className="text-input" value={editTrip.name} onChange={e=>setEditTrip(t=>({...t,name:e.target.value}))} placeholder="e.g. Bali, Kanye West concert…"/></div>
+                    <div className="field"><label>City <span style={{color:"#d1d5db",fontWeight:400}}>(optional — enables flight search links)</span></label>
+                      <input className="text-input" value={editTrip.destination||""} onChange={e=>setEditTrip(t=>({...t,destination:e.target.value}))} placeholder="e.g. Bali, Tokyo, Frankfurt…"/></div>
                     <div className="field"><label>Trip type</label>
                       <ToggleGroup options={[["holiday","🌴 Holiday"],["work","💼 Work"]]} value={editTrip.tripType||"holiday"}
                         onChange={v=>setEditTrip(t=>({...t,tripType:v}))} accent="#6366f1"/></div>
