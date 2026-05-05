@@ -577,37 +577,17 @@ function TripListCard({trip,onClick}){
   const nights=Math.round((end-start)/86400000);
   const icon=trip.tripType==="work"?"💼":trip.status==="committed"?"✈️":"🔍";
   const displayName=trip.name.replace(/\s*\(work\)\s*/i,"").trim();
-
-  // Build search URLs using destination name
-  const dest=encodeURIComponent(displayName);
-  const dateFrom=trip.start.replace(/-/g,"");
-  const dateTo=trip.end.replace(/-/g,"");
-  const gFlights=`https://www.google.com/travel/flights?q=Flights+to+${dest}`;
-  const skyscanner=`https://www.skyscanner.com/flights/auh/${dest.toLowerCase()}/${trip.start.slice(0,7).replace("-","")}/`;
-  const etihad=`https://www.etihad.com/en-ae/fly-etihad/destinations/${displayName.toLowerCase()}`;
-
+  const dest=trip.destination?String(trip.destination).trim():"";
   return(
-    <div style={{background:"#fff",borderRadius:14,border:isP?`1px dashed ${c}55`:`0.5px solid ${c}33`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",overflow:"hidden"}}>
-      <div onClick={onClick} style={{display:"flex",alignItems:"center",gap:10,padding:"12px",cursor:"pointer"}}>
-        <div style={{width:40,height:40,borderRadius:10,background:c+"15",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>{icon}</div>
-        <div style={{flex:1,minWidth:0}}>
-          <div style={{fontWeight:500,fontSize:14,color:"#1a1a1a",marginBottom:2}}>{displayName}</div>
-          <div style={{fontSize:12,color:"#9ca3af"}}>{fmtLabel(trip.start)} – {fmtLabel(trip.end)} · {nights} nights</div>
-          {trip.flights?.length>0&&<div style={{fontSize:11,color:c,marginTop:2}}>✈ {trip.flights.length} flight option{trip.flights.length>1?"s":""}</div>}
+    <div onClick={onClick} style={{display:"flex",alignItems:"center",gap:10,padding:"12px",background:"#fff",borderRadius:14,border:isP?`1px dashed ${c}55`:`0.5px solid ${c}33`,cursor:"pointer",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+      <div style={{width:40,height:40,borderRadius:10,background:c+"15",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>{icon}</div>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontWeight:500,fontSize:14,color:"#1a1a1a",marginBottom:2}}>{displayName}</div>
+        <div style={{fontSize:12,color:"#9ca3af"}}>
+          {dest&&<span style={{color:c,fontWeight:500,marginRight:4}}>{dest} · </span>}
+          {fmtLabel(trip.start)} – {fmtLabel(trip.end)} · {nights} nights
         </div>
-      </div>
-      {/* Quick search links */}
-      <div style={{display:"flex",borderTop:`1px solid #f5f5f5`,padding:"6px 12px",gap:6}}>
-        {[
-          {label:"Google Flights",url:gFlights,bg:"#e8f0fe",color:"#1a73e8"},
-          {label:"Skyscanner",url:skyscanner,bg:"#e8f5e9",color:"#0770e3"},
-          {label:"Etihad",url:etihad,bg:"#fff3e0",color:"#bd8b13"},
-        ].map(l=>(
-          <a key={l.label} href={l.url} target="_blank" rel="noopener noreferrer"
-            style={{flex:1,padding:"5px 4px",borderRadius:8,background:l.bg,color:l.color,fontSize:10,fontWeight:600,textAlign:"center",textDecoration:"none",display:"block"}}>
-            {l.label}
-          </a>
-        ))}
+        {trip.flights?.length>0&&<div style={{fontSize:11,color:c,marginTop:2}}>✈ {trip.flights.length} flight option{trip.flights.length>1?"s":""}</div>}
       </div>
     </div>
   );
